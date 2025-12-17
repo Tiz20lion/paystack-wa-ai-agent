@@ -11,8 +11,8 @@ import json
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-# Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+# Add the parent directory to the path to access app module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.agents.financial_agent_refactored import FinancialAgent
 from app.services.paystack_service import PaystackService
