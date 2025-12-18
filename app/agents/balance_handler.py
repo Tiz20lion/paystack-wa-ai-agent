@@ -259,7 +259,9 @@ class BalanceHandler:
     async def _process_balance_check_background(self, user_id: str, message: str, send_follow_up_callback):
         """Process balance check in background and send second response."""
         try:
-            logger.info(f"🔄 Starting background balance check for user {user_id}")
+            logger.info(f"🔄 [BACKGROUND TASK STARTED] Starting background balance check for user {user_id}")
+            logger.info(f"   Callback available: {send_follow_up_callback is not None}")
+            logger.info(f"   Callback type: {type(send_follow_up_callback)}")
             
             # Get balance data from API
             balance_data = await self.paystack.get_balance()
