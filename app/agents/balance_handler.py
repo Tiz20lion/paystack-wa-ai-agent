@@ -294,20 +294,20 @@ class BalanceHandler:
                         
                         # Send AI-powered response
                         await send_follow_up_callback(user_id, final_response)
-                logger.info(f"✅ Background balance check completed for user {user_id}")
-                return
+                        logger.info(f"✅ Background balance check completed for user {user_id}")
+                        return
                 
-            # Fallback to simple response  
-            fallback_responses = [
-                f"Your balance is ₦{current_balance:,.2f}. Looking good! 💰",
-                f"You've got ₦{current_balance:,.2f} in your account. Nice! 💰",
-                f"Your current balance is ₦{current_balance:,.2f}. Not bad! 💰"
-            ]
-            import random
-            final_response = random.choice(fallback_responses)
-            
-            await send_follow_up_callback(user_id, final_response)
-            logger.info(f"✅ Background balance check completed for user {user_id}")
+                # Fallback to simple response (when AI is disabled, fails, or returns falsy)
+                fallback_responses = [
+                    f"Your balance is ₦{current_balance:,.2f}. Looking good! 💰",
+                    f"You've got ₦{current_balance:,.2f} in your account. Nice! 💰",
+                    f"Your current balance is ₦{current_balance:,.2f}. Not bad! 💰"
+                ]
+                import random
+                final_response = random.choice(fallback_responses)
+                
+                await send_follow_up_callback(user_id, final_response)
+                logger.info(f"✅ Background balance check completed for user {user_id}")
             
         except Exception as e:
             logger.error(f"Background balance check failed for user {user_id}: {e}", exc_info=True)
