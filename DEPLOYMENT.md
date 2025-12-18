@@ -121,12 +121,28 @@ This guide will help you deploy the Paystack WhatsApp AI Agent on AWS EC2 with a
 
 ## Step 4: Configure Security Group
 
+⚠️ **CRITICAL**: GitHub Actions needs SSH access to deploy!
+
 1. **In AWS Console, open your EC2 Security Group**
+   - Go to: EC2 → Instances → Select your instance → Security tab → Click Security Group
+
 2. **Add inbound rules:**
-   - Port 22 (SSH) - Your IP only
-   - Port 80 (HTTP) - 0.0.0.0/0 (or your IP)
-   - Port 443 (HTTPS) - 0.0.0.0/0 (if using SSL)
-   - Port 8000 (API) - 0.0.0.0/0 (or restrict to your IP)
+   - **Port 22 (SSH)** - **MUST allow GitHub Actions IPs**:
+     - Option 1 (Recommended for testing): `0.0.0.0/0` (allows from anywhere)
+     - Option 2 (More secure): Add GitHub Actions IP ranges (see below)
+   - Port 80 (HTTP) - `0.0.0.0/0` (or your IP)
+   - Port 443 (HTTPS) - `0.0.0.0/0` (if using SSL)
+   - Port 8000 (API) - `0.0.0.0/0` (or restrict to your IP)
+
+3. **GitHub Actions IP Ranges (if using Option 2):**
+   - GitHub Actions uses dynamic IPs from various ranges
+   - You can find current IPs at: https://api.github.com/meta
+   - Or use a GitHub Actions IP allowlist service
+   - **For now, use `0.0.0.0/0` for SSH to get it working, then restrict later**
+
+4. **Verify Security Group:**
+   - Make sure the rule is saved
+   - Check that port 22 shows as allowed
 
 ## Step 5: Set Up SSL (Optional but Recommended)
 
@@ -186,10 +202,30 @@ sudo systemctl restart paystack-app.service
 3. Test manually: `cd /home/ubuntu/paystack-wa-ai-agent && source venv/bin/activate && python -m uvicorn api_server:app --host 0.0.0.0 --port 8000`
 
 ### GitHub Actions deployment fails
+
+**Error: "dial tcp ***:22: i/o timeout"**
+- This means GitHub Actions can't connect to your EC2 instance
+- **Fix**: Update EC2 Security Group to allow SSH (port 22) from `0.0.0.0/0`
+- Go to: EC2 Console → Your Instance → Security → Security Group → Edit Inbound Rules
+- Add rule: Type: SSH, Port: 22, Source: 0.0.0.0/0
+- Save and try again
+
+**Error: "missing server host"**
+- GitHub Actions secrets are not set
+- Go to: Repository Settings → Secrets and variables → Actions
+- Add: `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`
+
+**Error: "Permission denied (publickey)"**
+- SSH key is incorrect or not added to EC2
+- Regenerate key on EC2 and update `EC2_SSH_KEY` secret
+- Make sure public key is in `~/.ssh/authorized_keys` on EC2
+
+**Other issues:**
 1. Check SSH key format (must include headers)
-2. Verify EC2_HOST is correct
+2. Verify EC2_HOST is correct (no http://, just IP or domain)
 3. Check EC2 security group allows SSH from GitHub Actions IPs
 4. View Actions logs in GitHub for detailed error messages
+5. Test SSH manually: `ssh -i your-key.pem ubuntu@YOUR_EC2_IP`
 
 ### Application not accessible
 1. Check if service is running: `sudo systemctl status paystack-app.service`
