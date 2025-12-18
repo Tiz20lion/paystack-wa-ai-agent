@@ -24,6 +24,14 @@ class PaystackService:
     def __init__(self):
         self.base_url = settings.paystack_base_url
         self.secret_key = settings.paystack_secret_key
+        
+        # Validate Paystack configuration
+        if not self.secret_key or self.secret_key in ["sk_test_placeholder", "sk_test_your_secret_key_here", ""]:
+            logger.warning("⚠️  Paystack secret key not configured or using placeholder value")
+            logger.warning("⚠️  Paystack API calls will fail. Please set PAYSTACK_SECRET_KEY in environment variables")
+        else:
+            logger.info("✅ Paystack secret key configured")
+        
         self.headers = {
             "Authorization": f"Bearer {self.secret_key}",
             "Content-Type": "application/json",
@@ -38,6 +46,12 @@ class PaystackService:
         max_retries: int = 3
     ) -> Dict[str, Any]:
         """Make HTTP request to Paystack API with retry logic and comprehensive error handling."""
+        # Validate configuration before making request
+        if not self.secret_key or self.secret_key in ["sk_test_placeholder", "sk_test_your_secret_key_here", ""]:
+            error_msg = "Paystack API key not configured. Please set PAYSTACK_SECRET_KEY in environment variables."
+            logger.error(error_msg)
+            raise PaystackAPIError(message=error_msg, status_code=401)
+        
         url = f"{self.base_url}{endpoint}"
         
         for attempt in range(max_retries + 1):
@@ -414,4 +428,15 @@ class PaystackService:
 
 
 # Create global service instance
-paystack_service = PaystackService() 
+paystack_service = PaystackService()
+
+# Validate Paystack configuration on module load
+try:
+    from app.utils.service_validator import validate_paystack_config
+    paystack_validation = validate_paystack_config()
+    if not paystack_validation["valid"]:
+        logger.error("⚠️  Paystack service initialized with configuration issues")
+        for issue in paystack_validation["issues"]:
+            logger.error(f"   - {issue}")
+except Exception as e:
+    logger.warning(f"Could not validate Paystack configuration: {e}") 

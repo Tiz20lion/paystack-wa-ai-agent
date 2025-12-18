@@ -20,6 +20,13 @@ from app.services.paystack_service import paystack_service, PaystackAPIError
 # Initialize logger first
 logger = get_logger("api_server")
 
+# Validate all services on startup
+try:
+    from app.utils.service_validator import log_service_status
+    log_service_status()
+except Exception as e:
+    logger.warning(f"Could not validate services: {e}")
+
 # Import new AI services
 try:
     from app.agents.financial_agent_refactored import FinancialAgent
