@@ -1,12 +1,20 @@
 """Main entry point for Paystack CLI/API application."""
 
 import sys
-import argparse
-import asyncio
-from app.utils.config import settings
-from app.utils.logger import get_logger
+import os
 
-logger = get_logger("main")
+# For Vercel deployment, just export the FastAPI app
+if os.getenv("VERCEL"):
+    from api_server import app
+    # Vercel will use this app directly
+    __all__ = ["app"]
+else:
+    # For local development, use the CLI/API runner
+    import argparse
+    import asyncio
+    from app.utils.config import settings
+    from app.utils.logger import get_logger
+    logger = get_logger("main")
 
 
 def run_cli():
@@ -222,12 +230,14 @@ For more information, visit the documentation.
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n👋 Application terminated by user")
-        sys.exit(0)
-    except Exception as e:
-        logger.error(f"Fatal error: {e}")
-        print(f"\n💥 Fatal error: {e}")
-        sys.exit(1) 
+    # Only run CLI/API runner if not on Vercel
+    if not os.getenv("VERCEL"):
+        try:
+            main()
+        except KeyboardInterrupt:
+            print("\n👋 Application terminated by user")
+            sys.exit(0)
+        except Exception as e:
+            logger.error(f"Fatal error: {e}")
+            print(f"\n💥 Fatal error: {e}")
+            sys.exit(1) 

@@ -132,14 +132,18 @@ except Exception as e:
     
     settings = Settings()
 
-# Ensure logs directory exists
-try:
-    log_file_path = settings.log_file
-    if log_file_path:
-        log_dir = os.path.dirname(log_file_path)
-        if log_dir and log_dir != "":
-            os.makedirs(log_dir, exist_ok=True)
-except Exception as e:
-    print(f"Warning: Could not create logs directory: {e}")
-    # Create default logs directory as fallback
-    os.makedirs("logs", exist_ok=True) 
+# Ensure logs directory exists (skip on Vercel/serverless - read-only file system)
+if not os.getenv("VERCEL"):
+    try:
+        log_file_path = settings.log_file
+        if log_file_path:
+            log_dir = os.path.dirname(log_file_path)
+            if log_dir and log_dir != "":
+                os.makedirs(log_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: Could not create logs directory: {e}")
+        # Create default logs directory as fallback (only if not on Vercel)
+        try:
+            os.makedirs("logs", exist_ok=True)
+        except Exception:
+            pass  # Silently fail on Vercel 

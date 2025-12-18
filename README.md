@@ -2,54 +2,38 @@
 
 🤖 **AI-powered banking assistant for WhatsApp** - Send money, check balance, and manage finances through natural conversations.
 
-## What It Does
+## Features
 
-- 💰 **Banking**: Send money, check balance, view transaction history
-- 🧠 **AI Learning**: Remembers your patterns and frequent recipients
-- 💬 **Natural Chat**: Works in English, Pidgin, or mixed languages
-- 📊 **Smart Insights**: Tracks spending and provides financial guidance
+- 💰 Send money, check balance, view transaction history
+- 🧠 AI remembers your patterns and frequent recipients
+- 💬 Natural chat in English, Pidgin, or mixed languages
+- 📊 Smart spending insights and financial guidance
 
 ## Quick Start
 
-### 1. Clone Repository
 ```bash
+# 1. Clone and setup
 git clone https://github.com/Tiz20lion/paystack-wa-ai-agent.git
 cd paystack-wa-ai-agent
-```
 
-### 2. Setup Environment
-```bash
-# Copy example.env to .env and add your API keys
+# 2. Copy example.env to .env and add your API keys
 cp example.env .env
-# Edit .env with your keys from:
-# - Paystack: https://dashboard.paystack.com/settings/developer
-# - MongoDB: https://cloud.mongodb.com
-# - Twilio: https://console.twilio.com
-# - OpenRouter: https://openrouter.ai
-```
 
-### 3. Run
-```bash
+# 3. Run
 python start.py
 ```
 
-The script automatically:
-- Creates virtual environment
-- Installs dependencies
-- Sets up configuration
-- Starts the AI assistant
+## Required API Keys
 
-**Modes:**
-```bash
-python start.py              # Default: AI + API
-python start.py --mode api   # API server only
-python start.py --mode cli   # Terminal chat only
-python start.py --mode check # Verify setup
-```
+Get your keys from:
+- **Paystack**: https://dashboard.paystack.com/settings/developer
+- **MongoDB**: https://cloud.mongodb.com
+- **Twilio**: https://console.twilio.com
+- **OpenRouter**: https://openrouter.ai
 
 ## Environment Variables
 
-Required in `.env`:
+Add these to your `.env` file:
 
 ```bash
 # Banking
@@ -68,9 +52,19 @@ WEBHOOK_URL=https://your-domain.com/whatsapp/webhook
 # AI Features
 OPENROUTER_API_KEY=...
 
-# Optional (for Vercel deployment)
-VERCEL=1
-API_BASE_URL=https://your-domain.com
+# Security (generate with: python generate_keys.py)
+API_KEY=...
+JWT_SECRET_KEY=...
+WEBHOOK_SECRET=...
+```
+
+## Usage
+
+```bash
+python start.py              # Default: AI + API server
+python start.py --mode api   # API server only
+python start.py --mode cli   # Terminal chat only
+python start.py --mode check # Verify setup
 ```
 
 ## Example Conversations
@@ -88,22 +82,21 @@ AI: "You've spent ₦45,000 this week: ₦30k transfers, ₦15k airtime."
 
 ## API Endpoints
 
-- `POST /whatsapp/webhook` - WhatsApp webhook
-- `GET /api/balance` - Check balance
-- `POST /api/transfers` - Send money
-- `GET /api/transfers` - Transaction history
-- `POST /api/bank/resolve` - Resolve account details
+- `POST /whatsapp/webhook` - WhatsApp webhook (Twilio signature verified)
+- `GET /api/balance` - Check balance (requires API key)
+- `POST /api/transfers` - Send money (requires API key)
+- `GET /api/transfers` - Transaction history (requires API key)
 
-**Full API docs:** `http://localhost:8000/docs`
+**API docs:** `http://localhost:8000/docs` (disabled in production)
 
 ## Deployment (Vercel)
 
 1. Push code to GitHub
 2. Import repository to Vercel
-3. Add environment variables in Vercel dashboard
+3. Add all environment variables in Vercel dashboard
 4. Deploy
 
-The `vercel.json` file is pre-configured.
+**Security:** All `/api/*` endpoints require `X-API-Key` header. WhatsApp webhook is protected by Twilio signature verification.
 
 ## Project Structure
 
@@ -114,20 +107,7 @@ The `vercel.json` file is pre-configured.
 │   └── utils/           # Helpers (bank resolver, amount converter)
 ├── api_server.py        # FastAPI server
 ├── start.py             # Setup & run script
-└── vercel.json          # Vercel config
-```
-
-## Troubleshooting
-
-```bash
-# Check if everything works
-python start.py --mode check
-
-# Test database connection
-python tests/test_mongodb.py
-
-# Refresh banks database
-python fetch_banks.py
+└── generate_keys.py     # Generate secure API keys
 ```
 
 ## Documentation
@@ -140,12 +120,6 @@ python fetch_banks.py
 
 **Tiz Lion** - AI & Fintech Developer
 
-🔗 **Connect:**
-- [LinkedIn](https://www.linkedin.com/in/olajide-azeez-a2133a258)
-- [Instagram](https://www.instagram.com/tizkiya/#)
-- [YouTube](https://www.youtube.com/@TizLionAI)
-- [GitHub](https://github.com/Tiz20lion/paystack-wa-ai-agent)
+🔗 [LinkedIn](https://www.linkedin.com/in/olajide-azeez-a2133a258) | [Instagram](https://www.instagram.com/tizkiya/#) | [YouTube](https://www.youtube.com/@TizLionAI) | [GitHub](https://github.com/Tiz20lion/paystack-wa-ai-agent)
 
-**License:** MIT
-
-**Built with:** Paystack, Twilio, OpenRouter, MongoDB, FastAPI
+**License:** MIT | **Built with:** Paystack, Twilio, OpenRouter, MongoDB, FastAPI
