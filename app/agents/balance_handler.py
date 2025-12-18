@@ -292,10 +292,15 @@ class BalanceHandler:
                                 api_response={'success': True, 'current_balance': current_balance}
                             )
                         
-                        # Send AI-powered response
-                        await send_follow_up_callback(user_id, final_response)
-                        logger.info(f"✅ Background balance check completed for user {user_id}")
-                        return
+                        # Send AI-powered response with proper error handling (Bug 2 fix: add callback error handling)
+                        try:
+                            await send_follow_up_callback(user_id, final_response)
+                            logger.info(f"✅ Background balance check completed for user {user_id}")
+                            return
+                        except Exception as callback_error:
+                            logger.error(f"❌ Failed to send AI balance callback to {user_id}: {callback_error}", exc_info=True)
+                            # Re-raise to fall through to fallback handling
+                            raise
                 
                 # Fallback to simple response (when AI is disabled, fails, or returns falsy)
                 fallback_responses = [
@@ -306,8 +311,23 @@ class BalanceHandler:
                 import random
                 final_response = random.choice(fallback_responses)
                 
-                await send_follow_up_callback(user_id, final_response)
-                logger.info(f"✅ Background balance check completed for user {user_id}")
+                # Store balance check context (Bug 1 fix: ensure fallback paths also save context)
+                if self.memory:
+                    await self.memory.save_banking_operation_context(
+                        user_id=user_id,
+                        operation_type="balance_check",
+                        operation_data={'requested_by': user_id, 'balance_amount': current_balance},
+                        api_response={'success': True, 'current_balance': current_balance}
+                    )
+                
+                # Send fallback response with proper error handling (Bug 2 fix: add callback error handling)
+                try:
+                    await send_follow_up_callback(user_id, final_response)
+                    logger.info(f"✅ Background balance check completed for user {user_id}")
+                except Exception as callback_error:
+                    logger.error(f"❌ Failed to send fallback balance callback to {user_id}: {callback_error}", exc_info=True)
+                    # Don't retry here - let outer handler deal with it if needed
+                    raise
             except Exception as ai_error:
                 logger.error(f"AI balance processing failed: {ai_error}")
                 # Fallback to simple response
@@ -318,12 +338,46 @@ class BalanceHandler:
                 ]
                 import random
                 final_response = random.choice(fallback_responses)
-                await send_follow_up_callback(user_id, final_response)
-                logger.info(f"✅ Background balance check completed for user {user_id} (fallback)")
+                
+                # Store balance check context (Bug 1 fix: ensure exception handler fallback also saves context)
+                if self.memory:
+                    await self.memory.save_banking_operation_context(
+                        user_id=user_id,
+                        operation_type="balance_check",
+                        operation_data={'requested_by': user_id, 'balance_amount': current_balance},
+                        api_response={'success': True, 'current_balance': current_balance}
+                    )
+                
+                # Send fallback response with proper error handling (Bug 2 fix: add callback error handling)
+                try:
+                    await send_follow_up_callback(user_id, final_response)
+                    logger.info(f"✅ Background balance check completed for user {user_id} (fallback)")
+                except Exception as callback_error:
+                    logger.error(f"❌ Failed to send exception fallback balance callback to {user_id}: {callback_error}", exc_info=True)
+                    # Re-raise to let outer handler know callback failed
+                    raise
             
         except Exception as e:
             logger.error(f"Background balance check failed for user {user_id}: {e}", exc_info=True)
-            await send_follow_up_callback(user_id, "Something went wrong while checking your balance. Please try again.")
+            
+            # Bug 2 fix: Differentiate between callback errors and other errors
+            # If the error is from a callback failure, don't retry the callback
+            error_message = str(e).lower()
+            is_callback_error = any(keyword in error_message for keyword in [
+                'callback', 'send_follow_up', 'whatsapp', 'message', 'webhook'
+            ])
+            
+            if is_callback_error:
+                logger.warning(f"⚠️  Skipping callback retry for user {user_id} - callback already failed")
+                # Don't attempt callback again if it's a callback-related error
+            else:
+                # Only attempt callback for non-callback errors
+                try:
+                    await send_follow_up_callback(user_id, "Something went wrong while checking your balance. Please try again.")
+                    logger.info(f"✅ Error message sent to user {user_id}")
+                except Exception as callback_error:
+                    logger.error(f"❌ Failed to send error callback to {user_id}: {callback_error}", exc_info=True)
+                    # Don't retry - callback system appears to be down
     
     def _handle_background_task_error(self, task, user_id: str, send_follow_up_callback):
         """Handle errors in background tasks."""
