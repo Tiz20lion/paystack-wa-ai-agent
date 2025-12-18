@@ -307,6 +307,7 @@ class BalanceHandler:
                 )
             
             # Send the final response
+            logger.info(f"📤 Sending balance response to user {user_id}: {final_response[:50]}...")
             try:
                 await send_follow_up_callback(user_id, final_response)
                 logger.info(f"✅ Background balance check completed and message sent to user {user_id}")
@@ -315,8 +316,9 @@ class BalanceHandler:
                 # Try to send error message
                 try:
                     await send_follow_up_callback(user_id, "I got your balance but couldn't send it. Please try asking again.")
-                except:
-                    logger.error(f"❌ Failed to send error callback as well")
+                    logger.info(f"✅ Error fallback message sent")
+                except Exception as fallback_error:
+                    logger.error(f"❌ Failed to send error callback as well: {fallback_error}", exc_info=True)
             
         except Exception as e:
             logger.error(f"❌ Background balance check failed: {e}", exc_info=True)
