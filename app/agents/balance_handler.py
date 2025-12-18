@@ -234,7 +234,19 @@ class BalanceHandler:
             immediate_response = random.choice(responses)
             
             # Start background processing task (don't await it)
-            asyncio.create_task(self._process_balance_check_background(user_id, message, send_follow_up_callback))
+            logger.info(f"📋 Creating background task for balance check - user: {user_id}, has_callback: {send_follow_up_callback is not None}")
+            try:
+                task = asyncio.create_task(
+                    self._process_balance_check_background(user_id, message, send_follow_up_callback)
+                )
+                logger.info(f"✅ Background task created successfully: {task}, done: {task.done()}")
+                # Add error callback
+                task.add_done_callback(lambda t: self._handle_background_task_error(t, user_id, send_follow_up_callback))
+            except Exception as task_error:
+                logger.error(f"❌ Failed to create background task: {task_error}", exc_info=True)
+                # Fallback to synchronous balance check
+                logger.info("🔄 Falling back to synchronous balance check")
+                return await self.handle_balance_check(user_id)
             
             # Return immediate response to user
             return immediate_response
