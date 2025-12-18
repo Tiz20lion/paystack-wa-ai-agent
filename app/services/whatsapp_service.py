@@ -9,6 +9,7 @@ from io import BytesIO
 from typing import Dict, Optional, Any
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
+from twilio.request_validator import RequestValidator
 from fastapi import HTTPException
 from app.utils.logger import get_logger
 from app.utils.config import settings
@@ -22,7 +23,9 @@ class WhatsAppService:
     def __init__(self):
         self.client = None
         self.webhook_url = getattr(settings, 'webhook_url', 'https://your-domain.com/webhook')
+        self.validator = None
         self.initialize_client()
+        self.initialize_validator()
     
     def initialize_client(self):
         """Initialize Twilio client."""
@@ -39,6 +42,18 @@ class WhatsAppService:
             
         except Exception as e:
             logger.error(f"Failed to initialize Twilio client: {e}")
+    
+    def initialize_validator(self):
+        """Initialize Twilio request validator for signature verification."""
+        try:
+            auth_token = getattr(settings, 'twilio_auth_token', None)
+            if auth_token:
+                self.validator = RequestValidator(auth_token)
+                logger.info("Twilio request validator initialized")
+            else:
+                logger.warning("Twilio auth token not configured - webhook signature verification disabled")
+        except Exception as e:
+            logger.error(f"Failed to initialize Twilio validator: {e}")
     
     async def send_message(self, to: str, message: str) -> Dict[str, Any]:
         """Send a WhatsApp message."""
@@ -233,16 +248,39 @@ class WhatsAppService:
         response.message(message)
         return str(response)
     
-    def validate_webhook_request(self, request_data: Dict[str, Any]) -> bool:
-        """Validate incoming webhook request."""
+    def validate_webhook_request(self, request_data: Dict[str, Any], request_url: str = None, signature: str = None) -> bool:
+        """Validate incoming webhook request with Twilio signature verification."""
+        # Check required fields
         required_fields = ['From', 'Body', 'MessageSid']
-        
         for field in required_fields:
             if field not in request_data:
                 logger.warning(f"Missing required field: {field}")
                 return False
         
-        return True
+        # Verify Twilio signature if validator is available
+        if self.validator and request_url and signature:
+            try:
+                # Convert form data to dict for validation
+                params = dict(request_data)
+                
+                # Validate signature
+                is_valid = self.validator.validate(request_url, params, signature)
+                
+                if not is_valid:
+                    logger.warning(f"Invalid Twilio webhook signature from {request_data.get('From', 'Unknown')}")
+                    return False
+                
+                logger.debug("Twilio webhook signature verified successfully")
+                return True
+            except Exception as e:
+                logger.error(f"Error validating Twilio signature: {e}")
+                return False
+        elif not self.validator:
+            logger.warning("Twilio validator not initialized - skipping signature verification")
+            return True  # Allow if validator not configured (for development)
+        else:
+            logger.warning("Missing request URL or signature for validation")
+            return False
     
     def extract_user_info(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """Extract user information from webhook request."""

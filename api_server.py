@@ -1,11 +1,14 @@
 """FastAPI server for Paystack operations."""
 
-from fastapi import FastAPI, HTTPException, Depends, status, Form, File, UploadFile, Request
+from fastapi import FastAPI, HTTPException, Depends, status, Form, File, UploadFile, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import uuid
 import asyncio
 import os
@@ -65,17 +68,22 @@ app = FastAPI(
     title=settings.app_name,
     description="FastAPI backend for Paystack CLI operations",
     version=settings.app_version,
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url="/docs" if settings.debug else None,  # Disable docs in production
+    redoc_url="/redoc" if settings.debug else None  # Disable redoc in production
 )
 
-# Add CORS middleware
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add CORS middleware (restrictive for security)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],  # Only allow necessary methods
+    allow_headers=["Content-Type", "X-Twilio-Signature", "X-API-Key"],  # Only necessary headers
 )
 
 # Mount static files for receipt images
@@ -164,6 +172,26 @@ async def general_exception_handler(request, exc: Exception):
     )
 
 
+# Dependency to check API key for protected endpoints
+async def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """Verify API key for protected endpoints."""
+    # For WhatsApp-only deployment, we can disable other endpoints
+    # Or require an API key from environment
+    api_key = os.getenv("API_KEY", "")
+    
+    if not api_key:
+        # If no API key set, allow access (for development)
+        # In production, you should set API_KEY env var
+        return True
+    
+    if x_api_key != api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key"
+        )
+    return True
+
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -174,7 +202,7 @@ async def health_check():
 # Bank and Account Resolution Endpoints
 
 @app.get("/api/banks")
-async def list_banks(currency: str = "NGN") -> StandardResponse:
+async def list_banks(currency: str = "NGN", _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Get list of banks for a specific currency."""
     logger.info(f"API: Listing banks for currency {currency}")
     
@@ -196,7 +224,7 @@ async def list_banks(currency: str = "NGN") -> StandardResponse:
 
 
 @app.post("/api/bank/resolve")
-async def resolve_account(request: BankResolveRequest) -> StandardResponse:
+async def resolve_account(request: BankResolveRequest, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Resolve bank account number."""
     logger.info(f"API: Resolving account {request.account_number}")
     
@@ -224,7 +252,7 @@ async def resolve_account(request: BankResolveRequest) -> StandardResponse:
 # Transfer Recipient Endpoints
 
 @app.post("/api/transfer-recipients")
-async def create_transfer_recipient(request: CreateRecipientRequest) -> StandardResponse:
+async def create_transfer_recipient(request: CreateRecipientRequest, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Create a new transfer recipient."""
     logger.info(f"API: Creating recipient {request.name}")
     
@@ -255,6 +283,7 @@ async def create_transfer_recipient(request: CreateRecipientRequest) -> Standard
 
 @app.get("/api/transfer-recipients")
 async def list_transfer_recipients(
+    _: bool = Depends(verify_api_key),
     per_page: int = 50,
     page: int = 1
 ) -> StandardResponse:
@@ -279,7 +308,7 @@ async def list_transfer_recipients(
 
 
 @app.get("/api/transfer-recipients/{recipient_code}")
-async def fetch_transfer_recipient(recipient_code: str) -> StandardResponse:
+async def fetch_transfer_recipient(recipient_code: str, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Get details of a specific transfer recipient."""
     logger.info(f"API: Fetching recipient {recipient_code}")
     
@@ -303,7 +332,7 @@ async def fetch_transfer_recipient(recipient_code: str) -> StandardResponse:
 # Balance Endpoints
 
 @app.get("/api/balance")
-async def get_balance() -> StandardResponse:
+async def get_balance(_: bool = Depends(verify_api_key)) -> StandardResponse:
     """Get account balance."""
     logger.info("API: Getting balance")
     
@@ -326,6 +355,7 @@ async def get_balance() -> StandardResponse:
 
 @app.get("/api/balance/ledger")
 async def get_balance_ledger(
+    _: bool = Depends(verify_api_key),
     per_page: int = 50,
     page: int = 1
 ) -> StandardResponse:
@@ -352,7 +382,7 @@ async def get_balance_ledger(
 # Transfer Endpoints
 
 @app.post("/api/transfers")
-async def initiate_transfer(request: InitiateTransferRequest) -> StandardResponse:
+async def initiate_transfer(request: InitiateTransferRequest, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Initiate a transfer."""
     logger.info(f"API: Initiating transfer of {request.amount} to {request.recipient_code}")
     
@@ -387,7 +417,7 @@ async def initiate_transfer(request: InitiateTransferRequest) -> StandardRespons
 
 
 @app.post("/api/transfers/finalize")
-async def finalize_transfer(request: FinalizeTransferRequest) -> StandardResponse:
+async def finalize_transfer(request: FinalizeTransferRequest, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Finalize a transfer with OTP."""
     logger.info(f"API: Finalizing transfer {request.transfer_code}")
     
@@ -414,6 +444,7 @@ async def finalize_transfer(request: FinalizeTransferRequest) -> StandardRespons
 
 @app.get("/api/transfers")
 async def list_transfers(
+    _: bool = Depends(verify_api_key),
     per_page: int = 50,
     page: int = 1,
     from_date: Optional[str] = None,
@@ -464,7 +495,7 @@ async def list_transfers(
 
 
 @app.get("/api/transfers/{transfer_code}")
-async def fetch_transfer(transfer_code: str) -> StandardResponse:
+async def fetch_transfer(transfer_code: str, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Get details of a specific transfer."""
     logger.info(f"API: Fetching transfer {transfer_code}")
     
@@ -486,7 +517,7 @@ async def fetch_transfer(transfer_code: str) -> StandardResponse:
 
 
 @app.get("/api/transfers/verify/{reference}")
-async def verify_transfer(reference: str) -> StandardResponse:
+async def verify_transfer(reference: str, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Verify a transfer by reference."""
     logger.info(f"API: Verifying transfer {reference}")
     
@@ -511,6 +542,7 @@ async def verify_transfer(reference: str) -> StandardResponse:
 
 @app.get("/api/transactions")
 async def list_transactions(
+    _: bool = Depends(verify_api_key),
     per_page: int = 50,
     page: int = 1,
     status_filter: Optional[str] = None,
@@ -590,7 +622,7 @@ async def list_transactions(
 
 
 @app.get("/api/transactions/verify/{reference}")
-async def verify_transaction(reference: str) -> StandardResponse:
+async def verify_transaction(reference: str, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Verify a transaction by reference."""
     logger.info(f"API: Verifying transaction {reference}")
     
@@ -612,7 +644,7 @@ async def verify_transaction(reference: str) -> StandardResponse:
 
 
 @app.get("/api/transactions/{transaction_id}")
-async def fetch_transaction(transaction_id: int) -> StandardResponse:
+async def fetch_transaction(transaction_id: int, _: bool = Depends(verify_api_key)) -> StandardResponse:
     """Get details of a specific transaction."""
     logger.info(f"API: Fetching transaction {transaction_id}")
     
@@ -634,7 +666,7 @@ async def fetch_transaction(transaction_id: int) -> StandardResponse:
 
 
 @app.get("/api/info")
-async def get_app_info():
+async def get_app_info(_: bool = Depends(verify_api_key)):
     """Get application information."""
     return {
         "app_name": settings.app_name,
@@ -649,8 +681,9 @@ async def get_app_info():
 # =============================================================================
 
 @app.post("/whatsapp/webhook")
+@limiter.limit("100/minute")  # Rate limit: 100 requests per minute per IP
 async def whatsapp_webhook(request: Request):
-    """Handle incoming WhatsApp messages."""
+    """Handle incoming WhatsApp messages with signature verification."""
     
     if not AI_SERVICES_AVAILABLE:
         raise HTTPException(
@@ -659,11 +692,27 @@ async def whatsapp_webhook(request: Request):
         )
     
     try:
+        # Get Twilio signature from headers
+        twilio_signature = request.headers.get("X-Twilio-Signature", "")
+        
         # Get form data from webhook
         form_data = await request.form()
         request_data = dict(form_data)
         
-        logger.info(f"WhatsApp webhook received: {request_data.get('From', 'Unknown')}")
+        # Get full request URL for signature validation (include scheme, host, path)
+        request_url = f"{request.url.scheme}://{request.url.netloc}{request.url.path}"
+        if request.url.query:
+            request_url += f"?{request.url.query}"
+        
+        # Validate webhook request with signature verification
+        if not whatsapp_service.validate_webhook_request(request_data, request_url, twilio_signature):
+            logger.warning(f"Invalid webhook request from {request_data.get('From', 'Unknown')}")
+            raise HTTPException(
+                status_code=403,
+                detail="Invalid webhook signature"
+            )
+        
+        logger.info(f"WhatsApp webhook received and verified from {request_data.get('From', 'Unknown')}")
         
         # Extract webhook information with spam filtering
         webhook_info = await whatsapp_service.handle_webhook(request_data)
@@ -800,6 +849,7 @@ async def handle_image_message(user_info: Dict[str, Any], message_content: Dict[
 # Test endpoint for WhatsApp integration
 @app.post("/whatsapp/test")
 async def test_whatsapp(
+    _: bool = Depends(verify_api_key),
     to: str = Form(...),
     message: str = Form(...)
 ):
@@ -825,7 +875,7 @@ async def test_whatsapp(
 
 # OCR test endpoint
 @app.post("/api/ocr/extract")
-async def extract_from_image(file: UploadFile = File(...)):
+async def extract_from_image(file: UploadFile = File(...), _: bool = Depends(verify_api_key)):
     """Extract bank details from uploaded image."""
     
     if not AI_SERVICES_AVAILABLE:
@@ -854,6 +904,7 @@ async def extract_from_image(file: UploadFile = File(...)):
 # AI Agent test endpoint
 @app.post("/api/agent/chat")
 async def chat_with_agent(
+    _: bool = Depends(verify_api_key),
     user_id: str = Form(...),
     message: str = Form(...),
     thread_id: Optional[str] = Form(None)
