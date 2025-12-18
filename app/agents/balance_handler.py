@@ -233,37 +233,16 @@ class BalanceHandler:
             import random
             immediate_response = random.choice(responses)
             
-            # Start background processing task with proper error handling
-            task = asyncio.create_task(
-                self._process_balance_check_background(user_id, message, send_follow_up_callback)
-            )
-            # Add error callback to catch any unhandled exceptions
-            task.add_done_callback(lambda t: self._handle_background_task_error(t, user_id, send_follow_up_callback))
+            # Start background processing task (don't await it)
+            asyncio.create_task(self._process_balance_check_background(user_id, message, send_follow_up_callback))
             
             # Return immediate response to user
             return immediate_response
             
         except Exception as e:
-            logger.error(f"Failed to start balance check: {e}", exc_info=True)
+            logger.error(f"Failed to start balance check: {e}")
             # Fallback to traditional method if background processing fails
-            try:
-                return await self.handle_balance_check(user_id)
-            except Exception as fallback_error:
-                logger.error(f"Fallback balance check also failed: {fallback_error}", exc_info=True)
-                return "Sorry, I'm having trouble checking your balance right now. Please try again."
-    
-    def _handle_background_task_error(self, task, user_id: str, send_follow_up_callback):
-        """Handle errors in background tasks."""
-        try:
-            if task.exception():
-                error = task.exception()
-                logger.error(f"Background balance check task failed: {error}", exc_info=True)
-                # Try to send error message to user
-                asyncio.create_task(
-                    send_follow_up_callback(user_id, "Sorry, I couldn't get your balance right now. Please try again.")
-                )
-        except Exception as e:
-            logger.error(f"Error handling background task error: {e}", exc_info=True)
+            return await self.handle_balance_check(user_id)
     
     async def _process_balance_check_background(self, user_id: str, message: str, send_follow_up_callback):
         """Process balance check in background and send second response."""
@@ -271,16 +250,9 @@ class BalanceHandler:
             logger.info(f"🔄 Starting background balance check for user {user_id}")
             
             # Get balance data from API
-            try:
-                balance_data = await self.paystack.get_balance()
-                logger.info(f"Balance data received: {balance_data}")
-            except Exception as api_error:
-                logger.error(f"Paystack API error when fetching balance: {api_error}", exc_info=True)
-                await send_follow_up_callback(user_id, f"Sorry, I couldn't get your balance right now. Error: {str(api_error)[:50]}")
-                return
+            balance_data = await self.paystack.get_balance()
             
             if not balance_data or not isinstance(balance_data, list) or len(balance_data) == 0:
-                logger.warning(f"Empty or invalid balance data received: {balance_data}")
                 # Send error response
                 await send_follow_up_callback(user_id, "Sorry, I couldn't get your balance right now. Please try again.")
                 return
@@ -335,12 +307,24 @@ class BalanceHandler:
                 )
             
             # Send the final response
-            await send_follow_up_callback(user_id, final_response)
-            logger.info(f"✅ Background balance check completed for user {user_id}")
+            try:
+                await send_follow_up_callback(user_id, final_response)
+                logger.info(f"✅ Background balance check completed and message sent to user {user_id}")
+            except Exception as callback_error:
+                logger.error(f"❌ Failed to send balance callback to {user_id}: {callback_error}", exc_info=True)
+                # Try to send error message
+                try:
+                    await send_follow_up_callback(user_id, "I got your balance but couldn't send it. Please try asking again.")
+                except:
+                    logger.error(f"❌ Failed to send error callback as well")
             
         except Exception as e:
-            logger.error(f"Background balance check failed: {e}")
-            await send_follow_up_callback(user_id, "Something went wrong while checking your balance. Please try again.")
+            logger.error(f"❌ Background balance check failed: {e}", exc_info=True)
+            try:
+                await send_follow_up_callback(user_id, "Something went wrong while checking your balance. Please try again.")
+                logger.info(f"✅ Error message sent to user {user_id}")
+            except Exception as callback_error:
+                logger.error(f"❌ Failed to send error callback: {callback_error}", exc_info=True)
 
     async def handle_balance_check(self, user_id: str) -> str:
         """Handle balance check requests with comprehensive context storage."""
