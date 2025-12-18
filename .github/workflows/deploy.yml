@@ -18,6 +18,6 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/${{ secrets.EC2_USER }}/paystack-wa-ai-agent
-            ./deploy.sh
+            cd /home/${{ secrets.EC2_USER }}/paystack-wa-ai-agent || exit 1
+            ./deploy.sh || exit 1
 

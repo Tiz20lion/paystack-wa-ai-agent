@@ -45,21 +45,49 @@ This guide will help you deploy the Paystack WhatsApp AI Agent on AWS EC2 with a
 
 1. **Go to your GitHub repository settings:**
    - Navigate to: Settings → Secrets and variables → Actions
+   - Click "New repository secret"
 
-2. **Add the following secrets:**
-   - `EC2_HOST`: Your EC2 public IP or domain (e.g., `54.123.45.67`)
-   - `EC2_USER`: Your EC2 username (usually `ubuntu`)
-   - `EC2_SSH_KEY`: Your private SSH key content (the entire key file content)
-
-   To get your SSH key:
+2. **Add the following secrets (REQUIRED):**
+   
+   **Secret 1: `EC2_HOST`**
+   - Name: `EC2_HOST`
+   - Value: Your EC2 public IP address (e.g., `54.123.45.67`) or domain name
+   - ⚠️ **IMPORTANT**: Do NOT include `http://` or `https://`, just the IP or domain
+   
+   **Secret 2: `EC2_USER`**
+   - Name: `EC2_USER`
+   - Value: Your EC2 username (usually `ubuntu` for Ubuntu instances)
+   
+   **Secret 3: `EC2_SSH_KEY`**
+   - Name: `EC2_SSH_KEY`
+   - Value: Your private SSH key content (the entire key file content)
+   
+   To get your SSH key on EC2:
    ```bash
-   cat ~/.ssh/id_rsa
+   # On your EC2 instance, generate a key for GitHub Actions
+   ssh-keygen -t rsa -b 4096 -C "github-actions" -f ~/.ssh/github_actions_key
+   # Press Enter twice (no passphrase)
+   
+   # Add public key to authorized_keys
+   cat ~/.ssh/github_actions_key.pub >> ~/.ssh/authorized_keys
+   
+   # Display the private key (copy this entire output)
+   cat ~/.ssh/github_actions_key
    ```
-   Copy the entire output including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----`
+   
+   Copy the ENTIRE output including:
+   - `-----BEGIN RSA PRIVATE KEY-----`
+   - All the key content
+   - `-----END RSA PRIVATE KEY-----`
 
-3. **Push to main branch:**
+3. **Verify secrets are set:**
+   - Go back to: Settings → Secrets and variables → Actions
+   - You should see all 3 secrets listed
+
+4. **Push to main branch:**
    - The GitHub Actions workflow will automatically trigger on every push to `main`
    - Check Actions tab in GitHub to see deployment status
+   - If it fails, check the Actions logs for specific errors
 
 ## Step 3: Configure Nginx (Optional but Recommended)
 
