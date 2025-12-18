@@ -91,11 +91,23 @@ AI: "You've spent ₦45,000 this week: ₦30k transfers, ₦15k airtime."
 
 ## Deployment
 
-This application can be deployed on any platform that supports Python/FastAPI:
+### AWS EC2 (Recommended)
+
+This application is configured for automatic deployment on AWS EC2 with GitHub Actions.
+
+**Quick Setup:**
+1. Run `ec2-setup.sh` on your EC2 instance
+2. Configure GitHub Actions secrets (see `DEPLOYMENT.md`)
+3. Push to `main` branch - automatic deployment!
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
+### Other Platforms
+
+This application can also be deployed on:
 - **Railway**: Easy Python deployment
 - **Render**: Free tier available
 - **DigitalOcean App Platform**: Simple deployment
-- **AWS/GCP/Azure**: Full cloud platforms
 - **Docker**: Containerized deployment
 
 **Security:** All `/api/*` endpoints require `X-API-Key` header. WhatsApp webhook is protected by Twilio signature verification.

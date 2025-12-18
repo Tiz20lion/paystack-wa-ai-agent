@@ -43,6 +43,11 @@ venv.bak/
 *.swp
 *.swo
 *~
+
+# Deployment scripts (keep these tracked)
+!deploy.sh
+!ec2-setup.sh
+!.github/
 .DS_Store
 
 # Logs
