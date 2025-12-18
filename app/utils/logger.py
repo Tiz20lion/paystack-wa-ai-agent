@@ -21,31 +21,29 @@ def setup_logger():
         colorize=True,
     )
     
-    # File logging (skip on Vercel/serverless - use console only)
-    if not os.getenv("VERCEL"):
-        # Only log to files if not on Vercel (serverless file system is read-only)
-        try:
-            logger.add(
-                settings.log_file,
-                level="DEBUG",
-                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-                rotation=settings.log_rotation,
-                retention=settings.log_retention,
-                compression="zip",
-            )
-            
-            # Error file logging
-            logger.add(
-                "logs/error.log",
-                level="ERROR",
-                format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-                rotation="1 day",
-                retention="7 days",
-                compression="zip",
-            )
-        except Exception as e:
-            # If file logging fails, continue with console only
-            logger.warning(f"File logging not available: {e}")
+    # File logging
+    try:
+        logger.add(
+            settings.log_file,
+            level="DEBUG",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+            rotation=settings.log_rotation,
+            retention=settings.log_retention,
+            compression="zip",
+        )
+        
+        # Error file logging
+        logger.add(
+            "logs/error.log",
+            level="ERROR",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+            rotation="1 day",
+            retention="7 days",
+            compression="zip",
+        )
+    except Exception as e:
+        # If file logging fails, continue with console only
+        logger.warning(f"File logging not available: {e}")
     
     return logger
 

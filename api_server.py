@@ -94,11 +94,7 @@ app.add_middleware(
 )
 
 # Mount static files for receipt images
-# On Vercel, use /tmp for writable directory, otherwise use project directory
-if os.getenv("VERCEL"):
-    receipts_dir = "/tmp/receipts"
-else:
-    receipts_dir = os.path.join(os.path.dirname(__file__), "app", "receipts", "output")
+receipts_dir = os.path.join(os.path.dirname(__file__), "app", "receipts", "output")
 os.makedirs(receipts_dir, exist_ok=True)
 app.mount("/receipts", StaticFiles(directory=receipts_dir), name="receipts")
 

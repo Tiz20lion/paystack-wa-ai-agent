@@ -89,12 +89,14 @@ AI: "You've spent ₦45,000 this week: ₦30k transfers, ₦15k airtime."
 
 **API docs:** `http://localhost:8000/docs` (disabled in production)
 
-## Deployment (Vercel)
+## Deployment
 
-1. Push code to GitHub
-2. Import repository to Vercel
-3. Add all environment variables in Vercel dashboard
-4. Deploy
+This application can be deployed on any platform that supports Python/FastAPI:
+- **Railway**: Easy Python deployment
+- **Render**: Free tier available
+- **DigitalOcean App Platform**: Simple deployment
+- **AWS/GCP/Azure**: Full cloud platforms
+- **Docker**: Containerized deployment
 
 **Security:** All `/api/*` endpoints require `X-API-Key` header. WhatsApp webhook is protected by Twilio signature verification.
 

@@ -230,14 +230,12 @@ For more information, visit the documentation.
 
 
 if __name__ == "__main__":
-    # Only run CLI/API runner if not on Vercel
-    if not os.getenv("VERCEL"):
-        try:
-            main()
-        except KeyboardInterrupt:
-            print("\n👋 Application terminated by user")
-            sys.exit(0)
-        except Exception as e:
-            logger.error(f"Fatal error: {e}")
-            print(f"\n💥 Fatal error: {e}")
-            sys.exit(1) 
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n👋 Application terminated by user")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        print(f"\n💥 Fatal error: {e}")
+        sys.exit(1) 

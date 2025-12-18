@@ -24,11 +24,7 @@ class ReceiptGenerator:
     """Generate professional receipt images using PIL only"""
     
     def __init__(self):
-        # On Vercel, use /tmp for writable directory, otherwise use project directory
-        if os.getenv("VERCEL"):
-            self.output_dir = Path("/tmp/receipts")
-        else:
-            self.output_dir = Path(__file__).parent / "output"
+        self.output_dir = Path(__file__).parent / "output"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         if not PIL_AVAILABLE:
