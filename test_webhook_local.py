@@ -6,6 +6,7 @@ Tests the webhook without needing actual Twilio requests.
 
 import requests
 import json
+import time
 from urllib.parse import urlencode
 
 # Configuration
@@ -21,14 +22,14 @@ def test_health():
         response = requests.get(f"{BASE_URL}/health", timeout=5)
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
-        print("✅ Health check passed\n")
+        print("[OK] Health check passed\n")
         return True
     except requests.exceptions.ConnectionError:
-        print("❌ Cannot connect to server. Is it running?")
+        print("[ERROR] Cannot connect to server. Is it running?")
         print("   Start server with: python start.py --mode api")
         return False
     except Exception as e:
-        print(f"❌ Error: {e}\n")
+        print(f"[ERROR] Error: {e}\n")
         return False
 
 def test_webhook_without_signature():
@@ -57,13 +58,13 @@ def test_webhook_without_signature():
         print(f"Response: {response.text[:200]}")
         
         if response.status_code == 200:
-            print("✅ Webhook test passed\n")
+            print("[OK] Webhook test passed\n")
             return True
         else:
-            print(f"⚠️  Webhook returned status {response.status_code}\n")
+            print(f"[WARNING] Webhook returned status {response.status_code}\n")
             return False
     except Exception as e:
-        print(f"❌ Error: {e}\n")
+        print(f"[ERROR] Error: {e}\n")
         return False
 
 def test_webhook_with_balance():
@@ -91,13 +92,13 @@ def test_webhook_with_balance():
         print(f"Response: {response.text[:300]}")
         
         if response.status_code == 200:
-            print("✅ Balance request test passed\n")
+            print("[OK] Balance request test passed\n")
             return True
         else:
-            print(f"⚠️  Request returned status {response.status_code}\n")
+            print(f"[WARNING] Request returned status {response.status_code}\n")
             return False
     except Exception as e:
-        print(f"❌ Error: {e}\n")
+        print(f"[ERROR] Error: {e}\n")
         return False
 
 def test_api_endpoints():
@@ -112,31 +113,31 @@ def test_api_endpoints():
         response = requests.get(f"{BASE_URL}/api/info", timeout=5)
         print(f"Info endpoint status: {response.status_code}")
         if response.status_code == 401:
-            print("✅ API key protection is working\n")
+            print("[OK] API key protection is working\n")
         else:
             print(f"Response: {response.json()}\n")
     except Exception as e:
-        print(f"⚠️  Info endpoint test: {e}\n")
+        print(f"[WARNING] Info endpoint test: {e}\n")
     
     # Test docs endpoint
     try:
         response = requests.get(f"{BASE_URL}/docs", timeout=5)
         if response.status_code == 200:
-            print("✅ API docs accessible\n")
+            print("[OK] API docs accessible\n")
         else:
-            print(f"⚠️  Docs endpoint status: {response.status_code}\n")
+            print(f"[WARNING] Docs endpoint status: {response.status_code}\n")
     except Exception as e:
-        print(f"⚠️  Docs endpoint test: {e}\n")
+        print(f"[WARNING] Docs endpoint test: {e}\n")
 
 def main():
     """Run all tests."""
     print("\n" + "=" * 60)
-    print("🧪 Local Webhook Testing Suite")
+    print("Local Webhook Testing Suite")
     print("=" * 60)
     print("\nMake sure your server is running:")
     print("  python start.py --mode api")
-    print("\nPress Enter to continue or Ctrl+C to cancel...")
-    input()
+    print("\nWaiting 3 seconds for server to start...")
+    time.sleep(3)
     
     results = []
     
@@ -150,19 +151,18 @@ def main():
     
     # Summary
     print("=" * 60)
-    print("📊 Test Summary")
+    print("Test Summary")
     print("=" * 60)
     for test_name, passed in results:
-        status = "✅ PASSED" if passed else "❌ FAILED"
+        status = "[PASSED]" if passed else "[FAILED]"
         print(f"{test_name}: {status}")
     
     print("\n" + "=" * 60)
     if all(result[1] for result in results):
-        print("✅ All tests passed! Your app is working locally.")
+        print("[SUCCESS] All tests passed! Your app is working locally.")
     else:
-        print("⚠️  Some tests failed. Check the errors above.")
+        print("[WARNING] Some tests failed. Check the errors above.")
     print("=" * 60)
 
 if __name__ == "__main__":
     main()
-
