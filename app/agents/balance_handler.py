@@ -308,6 +308,18 @@ class BalanceHandler:
                 
                 await send_follow_up_callback(user_id, final_response)
                 logger.info(f"✅ Background balance check completed for user {user_id}")
+            except Exception as ai_error:
+                logger.error(f"AI balance processing failed: {ai_error}")
+                # Fallback to simple response
+                fallback_responses = [
+                    f"Your balance is ₦{current_balance:,.2f}. Looking good! 💰",
+                    f"You've got ₦{current_balance:,.2f} in your account. Nice! 💰",
+                    f"Your current balance is ₦{current_balance:,.2f}. Not bad! 💰"
+                ]
+                import random
+                final_response = random.choice(fallback_responses)
+                await send_follow_up_callback(user_id, final_response)
+                logger.info(f"✅ Background balance check completed for user {user_id} (fallback)")
             
         except Exception as e:
             logger.error(f"Background balance check failed for user {user_id}: {e}", exc_info=True)
@@ -322,42 +334,6 @@ class BalanceHandler:
                 # This callback is just for logging
         except Exception as e:
             logger.error(f"Error in background task error handler: {e}")
-                
-            except Exception as ai_error:
-                logger.error(f"AI balance processing failed: {ai_error}")
-                # Simple fallback
-                final_response = f"Your balance is ₦{current_balance:,.2f}. Not bad! 💰"
-            
-            # Store balance check context
-            if self.memory:
-                await self.memory.save_banking_operation_context(
-                    user_id=user_id,
-                    operation_type="balance_check",
-                    operation_data={'requested_by': user_id, 'balance_amount': current_balance},
-                    api_response={'success': True, 'current_balance': current_balance}
-                )
-            
-            # Send the final response
-            logger.info(f"📤 Sending balance response to user {user_id}: {final_response[:50]}...")
-            try:
-                await send_follow_up_callback(user_id, final_response)
-                logger.info(f"✅ Background balance check completed and message sent to user {user_id}")
-            except Exception as callback_error:
-                logger.error(f"❌ Failed to send balance callback to {user_id}: {callback_error}", exc_info=True)
-                # Try to send error message
-                try:
-                    await send_follow_up_callback(user_id, "I got your balance but couldn't send it. Please try asking again.")
-                    logger.info(f"✅ Error fallback message sent")
-                except Exception as fallback_error:
-                    logger.error(f"❌ Failed to send error callback as well: {fallback_error}", exc_info=True)
-            
-        except Exception as e:
-            logger.error(f"❌ Background balance check failed: {e}", exc_info=True)
-            try:
-                await send_follow_up_callback(user_id, "Something went wrong while checking your balance. Please try again.")
-                logger.info(f"✅ Error message sent to user {user_id}")
-            except Exception as callback_error:
-                logger.error(f"❌ Failed to send error callback: {callback_error}", exc_info=True)
 
     async def handle_balance_check(self, user_id: str) -> str:
         """Handle balance check requests with comprehensive context storage."""
