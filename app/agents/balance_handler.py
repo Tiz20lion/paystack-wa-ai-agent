@@ -292,15 +292,16 @@ class BalanceHandler:
                                 api_response={'success': True, 'current_balance': current_balance}
                             )
                         
-                        # Send AI-powered response with proper error handling (Bug 2 fix: add callback error handling)
+                        # Send AI-powered response with proper error handling (Bug 1 fix: handle callback failures gracefully)
                         try:
                             await send_follow_up_callback(user_id, final_response)
                             logger.info(f"✅ Background balance check completed for user {user_id}")
                             return
                         except Exception as callback_error:
                             logger.error(f"❌ Failed to send AI balance callback to {user_id}: {callback_error}", exc_info=True)
-                            # Re-raise to fall through to fallback handling
-                            raise
+                            # Don't re-raise - callback system may be down, gracefully exit to avoid cascade
+                            # The balance check succeeded, we just couldn't deliver the message
+                            return
                 
                 # Fallback to simple response (when AI is disabled, fails, or returns falsy)
                 fallback_responses = [
@@ -320,14 +321,15 @@ class BalanceHandler:
                         api_response={'success': True, 'current_balance': current_balance}
                     )
                 
-                # Send fallback response with proper error handling (Bug 2 fix: add callback error handling)
+                # Send fallback response with proper error handling (Bug 1 fix: handle callback failures gracefully)
                 try:
                     await send_follow_up_callback(user_id, final_response)
                     logger.info(f"✅ Background balance check completed for user {user_id}")
                 except Exception as callback_error:
                     logger.error(f"❌ Failed to send fallback balance callback to {user_id}: {callback_error}", exc_info=True)
-                    # Don't retry here - let outer handler deal with it if needed
-                    raise
+                    # Don't re-raise - callback system may be down, gracefully exit to avoid cascade
+                    # The balance check succeeded, we just couldn't deliver the message
+                    return
             except Exception as ai_error:
                 logger.error(f"AI balance processing failed: {ai_error}")
                 # Fallback to simple response
@@ -348,14 +350,15 @@ class BalanceHandler:
                         api_response={'success': True, 'current_balance': current_balance}
                     )
                 
-                # Send fallback response with proper error handling (Bug 2 fix: add callback error handling)
+                # Send fallback response with proper error handling (Bug 1 fix: handle callback failures gracefully)
                 try:
                     await send_follow_up_callback(user_id, final_response)
                     logger.info(f"✅ Background balance check completed for user {user_id} (fallback)")
                 except Exception as callback_error:
                     logger.error(f"❌ Failed to send exception fallback balance callback to {user_id}: {callback_error}", exc_info=True)
-                    # Re-raise to let outer handler know callback failed
-                    raise
+                    # Don't re-raise - callback system may be down, gracefully exit to avoid cascade
+                    # The balance check succeeded, we just couldn't deliver the message
+                    return
             
         except Exception as e:
             logger.error(f"Background balance check failed for user {user_id}: {e}", exc_info=True)
