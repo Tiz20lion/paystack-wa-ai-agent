@@ -19,5 +19,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/${{ secrets.EC2_USER }}/paystack-wa-ai-agent || exit 1
+            chmod +x deploy.sh
             ./deploy.sh || exit 1
 
