@@ -182,23 +182,23 @@ class ReceiptGenerator:
         return lines if lines else [text]
     
     def _generate_professional_receipt(self, output_path: str, receipt_info: Dict) -> bool:
-        """Generate professional TizLion AI branded receipt using PIL"""
+        """Generate minimalist, high-quality TizLion AI branded receipt using PIL"""
         try:
-            # Create professional receipt with TizLion AI branding (higher resolution for better quality)
-            img_width, img_height = 600, 900  # Increased resolution for sharper image
-            img = Image.new('RGB', (img_width, img_height), color='white')
+            # Create portrait-sized receipt for mobile screens (Samsung S24 Ultra style)
+            img_width, img_height = 1080, 1920  # Portrait size for mobile viewing
+            img = Image.new('RGB', (img_width, img_height), color='#ffffff')
             draw = ImageDraw.Draw(img)
             
-            # Enable anti-aliasing for smoother drawing
-            # This will be applied to text and shapes for better quality
-            
-            # Define TizLion AI brand colors
-            navy_blue = '#1e3a8a'
-            cyan = '#06b6d4'
-            light_blue = '#f0f9ff'
-            gray = '#64748b'
-            success_green = '#166534'
-            success_bg = '#dcfce7'
+            # Minimalist color palette - subtle and elegant
+            primary_dark = '#0f172a'  # Deep slate for primary text
+            primary_light = '#1e293b'  # Lighter slate for secondary text
+            accent_green = '#10b981'  # Modern success green
+            accent_blue = '#3b82f6'  # Subtle blue accent
+            text_muted = '#64748b'  # Muted gray for labels
+            text_light = '#94a3b8'  # Light gray for subtle text
+            border_color = '#e2e8f0'  # Very light border
+            bg_subtle = '#f8fafc'  # Subtle background
+            success_bg = '#ecfdf5'  # Very subtle success background
             
             # Load and prepare TizLion AI logo for watermark
             logo_path = Path(__file__).parent / "assets" / "tizlionailogo.png"
@@ -207,9 +207,9 @@ class ReceiptGenerator:
             try:
                 if logo_path.exists():
                     watermark_logo = Image.open(logo_path)
-                    # Resize logo for watermark (scaled for higher resolution)
-                    watermark_max_width = 400  # Scaled up for higher resolution
-                    watermark_max_height = 320  # Scaled up for higher resolution
+                    # Resize logo for watermark (scaled for portrait size)
+                    watermark_max_width = 800  # Scaled for portrait size
+                    watermark_max_height = 640  # Scaled for portrait size
                     
                     # Calculate resize ratio maintaining aspect ratio
                     width_ratio = watermark_max_width / watermark_logo.width
@@ -229,12 +229,12 @@ class ReceiptGenerator:
                     watermark_alpha = Image.new('RGBA', watermark_logo.size, (0, 0, 0, 0))
                     watermark_alpha.paste(watermark_logo, (0, 0))
                     
-                    # Apply transparency (25% opacity for better visibility with larger size)
+                    # Make watermark 5% more visible (20% opacity)
                     for x in range(watermark_logo.width):
                         for y in range(watermark_logo.height):
                             pixel = watermark_logo.getpixel((x, y))
                             if len(pixel) == 4:  # RGBA
-                                new_alpha = int(pixel[3] * 0.25)  # 25% opacity
+                                new_alpha = int(pixel[3] * 0.20)  # 20% opacity (5% more visible)
                                 watermark_logo.putpixel((x, y), (pixel[0], pixel[1], pixel[2], new_alpha))
                         
                     logger.debug(f"Watermark logo prepared: {new_width}x{new_height}")
@@ -244,16 +244,17 @@ class ReceiptGenerator:
                 logger.warning(f"Could not load logo for watermark: {e}")
                 watermark_logo = None
             
-            # Load system fonts (cross-platform) with higher resolution sizes
+            # Load system fonts with optimized sizes for minimalist design
+            # Scaled for portrait size (1080x1920)
             try:
                 if sys.platform.startswith('win'):
-                    font_brand = ImageFont.truetype("arial.ttf", 34)  # Scaled up for higher resolution
-                    font_title = ImageFont.truetype("arial.ttf", 32)
-                    font_large = ImageFont.truetype("arial.ttf", 52)
-                    font_large_bold = ImageFont.truetype("arialbd.ttf", 52)  # Bold font for amount
-                    font_medium = ImageFont.truetype("arial.ttf", 26)
-                    font_small = ImageFont.truetype("arial.ttf", 20)
-                    font_tiny = ImageFont.truetype("arial.ttf", 17)
+                    font_display = ImageFont.truetype("arial.ttf", 96)  # Large display font for amount (scaled)
+                    font_display_bold = ImageFont.truetype("arialbd.ttf", 96)  # Bold for amount (scaled)
+                    font_heading = ImageFont.truetype("arial.ttf", 36)  # Heading font (scaled)
+                    font_detail = ImageFont.truetype("arial.ttf", 32)  # Consistent font for all details (scaled)
+                    font_label = ImageFont.truetype("arial.ttf", 24)  # Labels (scaled)
+                    font_caption = ImageFont.truetype("arial.ttf", 20)  # Caption/small text (scaled)
+                    font_tiny = ImageFont.truetype("arial.ttf", 18)  # Very small text (scaled)
                 else:
                     # Linux/macOS font paths
                     font_paths = [
@@ -271,106 +272,127 @@ class ReceiptGenerator:
                             break
                     
                     if font_path:
-                        font_brand = ImageFont.truetype(font_path, 34)
-                        font_title = ImageFont.truetype(font_path, 32)
-                        font_large = ImageFont.truetype(font_path, 52)
-                        font_large_bold = ImageFont.truetype(font_path, 52)  # Bold font for amount
-                        font_medium = ImageFont.truetype(font_path, 26)
-                        font_small = ImageFont.truetype(font_path, 20)
-                        font_tiny = ImageFont.truetype(font_path, 17)
+                        font_display = ImageFont.truetype(font_path, 96)
+                        font_display_bold = ImageFont.truetype(font_path, 96)
+                        font_heading = ImageFont.truetype(font_path, 36)
+                        font_detail = ImageFont.truetype(font_path, 32)
+                        font_label = ImageFont.truetype(font_path, 24)
+                        font_caption = ImageFont.truetype(font_path, 20)
+                        font_tiny = ImageFont.truetype(font_path, 18)
                     else:
                         raise Exception("No suitable font found")
             except:
                 # Fallback to default fonts
-                font_brand = ImageFont.load_default()
-                font_title = ImageFont.load_default()
-                font_large = ImageFont.load_default()
-                font_large_bold = ImageFont.load_default()  # Bold font for amount
-                font_medium = ImageFont.load_default()
-                font_small = ImageFont.load_default()
+                font_display = ImageFont.load_default()
+                font_display_bold = ImageFont.load_default()
+                font_heading = ImageFont.load_default()
+                font_detail = ImageFont.load_default()
+                font_label = ImageFont.load_default()
+                font_caption = ImageFont.load_default()
                 font_tiny = ImageFont.load_default()
             
-            # -- HEADER -- (scaled for higher resolution)
-            header_height = 140  # Increased proportionally
-            draw.rectangle([0, 0, img_width, header_height], fill=navy_blue)
+            # -- MINIMALIST HEADER -- Clean and spacious (scaled for portrait)
+            top_padding = 120  # Scaled for portrait size
+            current_y = top_padding
             
-            # Draw custom checkmark icon in center above title (based on SVG design)
-            check_size = 28  # Scaled up for higher resolution
-            check_x = (img_width - check_size) // 2
-            check_y = 12  # Adjusted for higher resolution
+            # Load and display success checkmark icon from checked.png
+            check_icon_path = Path(__file__).parent / "assets" / "checked.png"
+            check_icon = None
+            check_icon_size = 120  # Scaled for portrait size
             
-            # Draw checkmark background circle (green circle like in SVG)
-            circle_padding = 6  # Scaled up for higher resolution
-            circle_x = check_x - circle_padding
-            circle_y = check_y - circle_padding
-            circle_size = check_size + (circle_padding * 2)
+            try:
+                if check_icon_path.exists():
+                    check_icon = Image.open(check_icon_path)
+                    # Resize icon maintaining aspect ratio
+                    original_width, original_height = check_icon.size
+                    aspect_ratio = original_width / original_height
+                    
+                    if aspect_ratio >= 1:
+                        # Width is larger or equal
+                        new_width = check_icon_size
+                        new_height = int(check_icon_size / aspect_ratio)
+                    else:
+                        # Height is larger
+                        new_height = check_icon_size
+                        new_width = int(check_icon_size * aspect_ratio)
+                    
+                    check_icon = check_icon.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Convert to RGBA if needed for transparency
+                    if check_icon.mode != 'RGBA':
+                        check_icon = check_icon.convert('RGBA')
+                    
+                    # Calculate position (centered)
+                    check_x = (img_width - new_width) // 2
+                    check_y = current_y
+                    
+                    # Paste the checkmark icon onto the image
+                    img.paste(check_icon, (check_x, check_y), check_icon)
+                    
+                    # Update current_y based on icon height
+                    current_y = check_y + new_height + 48  # Scaled spacing after icon
+                    logger.debug(f"Success icon loaded: {new_width}x{new_height}")
+                else:
+                    logger.warning(f"Checked icon not found at {check_icon_path}, using fallback")
+                    # Fallback: use a simple circle if icon not found
+                    check_size = 72
+                    circle_size = check_size + 24
+                    circle_x = (img_width - circle_size) // 2
+                    circle_y = current_y
+                    draw.ellipse([circle_x, circle_y, circle_x + circle_size, circle_y + circle_size], 
+                                fill=success_bg, outline=accent_green, width=2)
+                    current_y = circle_y + circle_size + 48
+            except Exception as e:
+                logger.warning(f"Could not load success icon: {e}, using fallback")
+                # Fallback: use a simple circle if icon loading fails
+                check_size = 72
+                circle_size = check_size + 24
+                circle_x = (img_width - circle_size) // 2
+                circle_y = current_y
+                draw.ellipse([circle_x, circle_y, circle_x + circle_size, circle_y + circle_size], 
+                            fill=success_bg, outline=accent_green, width=2)
+                current_y = circle_y + circle_size + 48
             
-            # Draw green filled circle background (matching SVG #25AE88)
-            svg_green = '#25AE88'
-            draw.ellipse([circle_x, circle_y, circle_x + circle_size, circle_y + circle_size], 
-                        fill=svg_green)
-            
-            # Draw white checkmark using polyline coordinates from SVG
-            # SVG coordinates: (38,15) -> (22,33) -> (12,25) scaled to fit our circle
-            # Scale factor: check_size / 50 (SVG viewBox) = 20/50 = 0.4
-            scale = check_size / 50.0
-            
-            # Calculate checkmark points relative to circle center
-            center_x = circle_x + circle_size // 2
-            center_y = circle_y + circle_size // 2
-            
-            # SVG polyline points scaled and positioned
-            point1_x = center_x + int((38 - 25) * scale)  # 38 relative to center (25)
-            point1_y = center_y + int((15 - 25) * scale)  # 15 relative to center (25)
-            
-            point2_x = center_x + int((22 - 25) * scale)  # 22 relative to center (25)
-            point2_y = center_y + int((33 - 25) * scale)  # 33 relative to center (25)
-            
-            point3_x = center_x + int((12 - 25) * scale)  # 12 relative to center (25)
-            point3_y = center_y + int((25 - 25) * scale)  # 25 relative to center (25)
-            
-            # Draw white checkmark with proper thickness (scaled for higher resolution)
-            check_thickness = 3  # Increased thickness for better visibility
-            for i in range(check_thickness):
-                # First line: from point3 to point2 (left part of checkmark)
-                draw.line([point3_x, point3_y + i, point2_x, point2_y + i], 
-                         fill='white', width=3)  # Increased line width
-                # Second line: from point2 to point1 (right part of checkmark)
-                draw.line([point2_x, point2_y + i, point1_x, point1_y + i], 
-                         fill='white', width=3)  # Increased line width
-            
-            # "Transfer Success" title - centered below checkmark (adjusted for higher resolution)
+            # Title - minimalist typography (scaled spacing)
             title_text = "Transfer Successful"
-            title_font = font_title
-            title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
+            title_bbox = draw.textbbox((0, 0), title_text, font=font_heading)
             title_width = title_bbox[2] - title_bbox[0]
             title_x = (img_width - title_width) // 2
-            title_y = check_y + check_size + circle_padding + 12  # Adjusted spacing for higher resolution
-            draw.text((title_x, title_y), title_text, fill='white', font=title_font)
+            draw.text((title_x, current_y), title_text, fill=primary_dark, font=font_heading)
             
-            # Subtitle (adjusted positioning for higher resolution)
-            subtitle_text = "Secure TizLion AI Banking Assistant"
-            subtitle_font = font_tiny
-            subtitle_bbox = draw.textbbox((0, 0), subtitle_text, font=subtitle_font)
+            # Subtle subtitle (scaled spacing)
+            current_y += 60  # Scaled
+            subtitle_text = "TizLion AI Banking"
+            subtitle_bbox = draw.textbbox((0, 0), subtitle_text, font=font_caption)
             subtitle_width = subtitle_bbox[2] - subtitle_bbox[0]
             subtitle_x = (img_width - subtitle_width) // 2
-            subtitle_y = title_y + 36  # Increased spacing for higher resolution
-            draw.text((subtitle_x, subtitle_y), subtitle_text, fill='#cbd5e1', font=subtitle_font)
+            draw.text((subtitle_x, current_y), subtitle_text, fill=text_muted, font=font_caption)
             
-            # Gradient bar under header (1–2px height)
-            gradient_y = header_height
-            gradient_height = 4
-            for i in range(gradient_height):
-                blend = i / gradient_height
-                r = int(30 * (1 - blend) + 6 * blend)
-                g = int(58 * (1 - blend) + 182 * blend)
-                b = int(138 * (1 - blend) + 212 * blend)
-                draw.line([(0, gradient_y + i), (img_width, gradient_y + i)], fill=(r, g, b))
+            # Subtle divider line (scaled)
+            current_y += 90  # Scaled
+            draw.line([100, current_y, img_width - 100, current_y], fill=border_color, width=2)  # Scaled
             
-            # Optional: Thin separator line below gradient
-            draw.line([(0, gradient_y + gradient_height), (img_width, gradient_y + gradient_height)], fill='#e2e8f0', width=1)
+            # -- AMOUNT SECTION -- Minimalist and prominent (scaled spacing)
+            current_y += 80  # Scaled
+            amount_text = f"₦{receipt_info['amount']:,.2f}"
+            amount_bbox = draw.textbbox((0, 0), amount_text, font=font_display_bold)
+            amount_width = amount_bbox[2] - amount_bbox[0]
+            amount_x = (img_width - amount_width) // 2
+            draw.text((amount_x, current_y), amount_text, fill=primary_dark, font=font_display_bold)
             
-            # Add watermark logo in the center background
+            # Amount label - subtle (scaled spacing)
+            current_y += 120  # Scaled
+            amount_label = "Amount Transferred"
+            label_bbox = draw.textbbox((0, 0), amount_label, font=font_caption)
+            label_width = label_bbox[2] - label_bbox[0]
+            label_x = (img_width - label_width) // 2
+            draw.text((label_x, current_y), amount_label, fill=text_muted, font=font_caption)
+            
+            # Subtle divider (scaled)
+            current_y += 100  # Scaled
+            draw.line([100, current_y, img_width - 100, current_y], fill=border_color, width=2)  # Scaled
+            
+            # Add watermark logo in the center background (before details)
             if watermark_logo:
                 # Calculate watermark position (center of receipt)
                 watermark_x = (img_width - watermark_logo.width) // 2
@@ -389,142 +411,79 @@ class ReceiptGenerator:
                 # Recreate draw object for the new image
                 draw = ImageDraw.Draw(img)
             
-            # Amount section with modern styling (scaled for higher resolution)
-            amount_y = header_height + gradient_height + 15  # Adjusted spacing
-            amount_height = 115  # Increased height for higher resolution
-            draw.rectangle([30, amount_y, img_width - 30, amount_y + amount_height], 
-                          fill=light_blue)  # Increased padding
+            # -- TRANSACTION DETAILS -- Clean list format with consistent font size
+            current_y += 80  # Increased spacing for portrait size
+            details_padding = 100  # Increased padding for portrait size
+            label_value_gap = 40  # Gap between label and value
             
-            # Amount text (positioned for higher resolution)
-            amount_text = f"₦{receipt_info['amount']:,.2f}"
-            amount_bbox = draw.textbbox((0, 0), amount_text, font=font_large_bold)
-            amount_width = amount_bbox[2] - amount_bbox[0]
-            amount_x = (img_width - amount_width) // 2
-            draw.text((amount_x, amount_y + 35), amount_text, fill=navy_blue, font=font_large_bold)  # Adjusted position
-            
-            # Amount label (positioned for higher resolution)
-            amount_label = "AMOUNT"
-            label_bbox = draw.textbbox((0, 0), amount_label, font=font_tiny)
-            label_width = label_bbox[2] - label_bbox[0]
-            label_x = (img_width - label_width) // 2
-            draw.text((label_x, amount_y + 95), amount_label, fill=gray, font=font_tiny)  # Adjusted position
-            
-            # Details section (adjusted for higher resolution)
-            details_y = amount_y + amount_height + 30  # Increased spacing
-            details_padding = 45  # Increased padding for higher resolution
-            label_value_gap = 30  # Gap between label and value
-            
-            # Transaction details
+            # Transaction details with minimalist layout - all same font size
             details = [
-                ("TO", receipt_info['recipient_name']),
-                ("ACCOUNT", receipt_info['account_number']),
-                ("BANK", receipt_info['bank_name']),
-                ("STATUS", receipt_info['status'].upper()),
-                ("DATE", receipt_info['timestamp']),
+                ("Recipient", receipt_info['recipient_name']),
+                ("Account", receipt_info['account_number']),
+                ("Bank", receipt_info['bank_name']),
+                ("Date", receipt_info['timestamp']),
+                ("Reference", receipt_info['reference']),
             ]
             
-            # Base spacing and line height for wrapped text
-            base_spacing = 55
-            line_height = 35  # Height per line when text wraps
+            # Consistent spacing between items (scaled for portrait)
+            detail_spacing = 90
+            line_height = 40  # Height per line of text (for wrapped text)
             
-            # Track actual Y position (may vary due to wrapping)
-            actual_y = details_y
+            # Track actual Y position as we render (may vary due to wrapping)
+            actual_y = current_y
             
             for i, (label, value) in enumerate(details):
-                # Draw separator line (adjusted for higher resolution)
+                # Subtle separator line
                 if i > 0:
-                    separator_y = actual_y - (base_spacing // 2)
+                    separator_y = actual_y - (detail_spacing // 2)
                     draw.line([details_padding, separator_y, img_width - details_padding, separator_y], 
-                             fill='#e2e8f0', width=2)  # Increased line width for better visibility
+                             fill=border_color, width=1)
                 
                 # Calculate available width for value (accounting for label and gap)
-                label_bbox = draw.textbbox((0, 0), label, font=font_small)
+                label_bbox = draw.textbbox((0, 0), label, font=font_detail)
                 label_width = label_bbox[2] - label_bbox[0]
                 max_value_width = img_width - details_padding - label_width - label_value_gap - details_padding
                 
                 # Wrap value text if needed (especially for long recipient names)
-                value_lines = self._wrap_text(value, font_small, max_value_width)
+                value_lines = self._wrap_text(value, font_detail, max_value_width)
                 
-                # Label
-                draw.text((details_padding, actual_y), label, fill=gray, font=font_small)
+                # Label - left aligned, muted, same font size as value
+                draw.text((details_padding, actual_y), label, fill=text_muted, font=font_detail)
                 
-                # Value - handle multiple lines if wrapped
-                if label == "STATUS":
-                    # Enhanced status badge with better visibility (smaller size)
-                    status_color = success_green if receipt_info['status'] == 'success' else '#991b1b'
-                    status_bg_color = success_bg if receipt_info['status'] == 'success' else '#fee2e2'
-                    
-                    # Use small font but with better styling (scaled for higher resolution)
-                    value_bbox = draw.textbbox((0, 0), value, font=font_small)
-                    badge_width = value_bbox[2] - value_bbox[0] + 30  # Increased padding for higher resolution
-                    badge_height = 32  # Increased height for higher resolution
-                    badge_x = img_width - details_padding - badge_width
-                    badge_y = actual_y - 4  # Adjusted position
-                    
-                    # Draw enhanced status badge with rounded corners effect
-                    draw.rectangle([badge_x, badge_y, badge_x + badge_width, badge_y + badge_height], 
-                                 fill=status_bg_color, outline=status_color, width=2)
-                    
-                    # Add subtle shadow effect
-                    draw.rectangle([badge_x + 1, badge_y + 1, badge_x + badge_width + 1, badge_y + badge_height + 1], 
-                                 fill='#00000020', outline='#00000020', width=1)
-                    
-                    # Main badge
-                    draw.rectangle([badge_x, badge_y, badge_x + badge_width, badge_y + badge_height], 
-                                 fill=status_bg_color, outline=status_color, width=2)
-                    
-                    # Status text with better positioning (adjusted for higher resolution)
-                    # Status doesn't need wrapping (it's short)
-                    text_x = badge_x + 15  # Centered in badge with more padding
-                    text_y = badge_y + 6   # Centered vertically with adjustment
-                    draw.text((text_x, text_y), value, fill=status_color, font=font_small)
-                    # Update actual_y for status (single line)
-                    actual_y += base_spacing
-                else:
-                    # Regular value - right aligned, handle wrapped text
-                    for line_idx, line in enumerate(value_lines):
-                        value_bbox = draw.textbbox((0, 0), line, font=font_medium)
-                        value_width = value_bbox[2] - value_bbox[0]
-                        value_x = img_width - details_padding - value_width
-                        line_y = actual_y + (line_idx * line_height)
-                        draw.text((value_x, line_y), line, fill='#1e293b', font=font_medium)
-                    
-                    # Move to next item position (account for wrapped lines)
-                    actual_y += base_spacing + ((len(value_lines) - 1) * line_height)
+                # Value - right aligned, same font size as label, handle wrapped text
+                for line_idx, line in enumerate(value_lines):
+                    value_bbox = draw.textbbox((0, 0), line, font=font_detail)
+                    value_width = value_bbox[2] - value_bbox[0]
+                    value_x = img_width - details_padding - value_width
+                    line_y = actual_y + (line_idx * line_height)
+                    draw.text((value_x, line_y), line, fill=primary_dark, font=font_detail)
+                
+                # Move to next item position (account for wrapped lines)
+                actual_y += detail_spacing + ((len(value_lines) - 1) * line_height)
             
-            # Footer section (adjusted for higher resolution)
-            # Use actual_y to account for wrapped text in details
-            footer_y = actual_y + 45  # Adjusted spacing for higher resolution
+            # -- FOOTER -- Minimalist and clean
+            footer_y = actual_y + 80
             
-            # Footer background
-            draw.rectangle([0, footer_y, img_width, img_height], fill='#f8fafc')
-            draw.line([0, footer_y, img_width, footer_y], fill='#e2e8f0', width=2)  # Increased line width
+            # Subtle top border
+            draw.line([0, footer_y, img_width, footer_y], fill=border_color, width=1)
             
-            # Reference code (adjusted for higher resolution)
-            ref_text = f"REF: {receipt_info['reference']}"
-            ref_bbox = draw.textbbox((0, 0), ref_text, font=font_tiny)
-            ref_width = ref_bbox[2] - ref_bbox[0]
-            ref_x = (img_width - ref_width) // 2
-            
-            # Reference background (scaled for higher resolution)
-            draw.rectangle([ref_x - 15, footer_y + 30, ref_x + ref_width + 15, footer_y + 58], 
-                          fill='#e2e8f0', outline='#cbd5e1', width=2)  # Increased padding and border
-            draw.text((ref_x, footer_y + 36), ref_text, fill='#475569', font=font_tiny)  # Adjusted position
-            
-            # TizBot AI branding (adjusted for higher resolution)
-            powered_text = "Powered by TizLion AI"
+            # Branding - very subtle
+            branding_y = img_height - 60
+            powered_text = "TizLion AI"
             powered_bbox = draw.textbbox((0, 0), powered_text, font=font_tiny)
             powered_width = powered_bbox[2] - powered_bbox[0]
             powered_x = (img_width - powered_width) // 2
-            draw.text((powered_x, footer_y + 80), powered_text, fill=gray, font=font_tiny)  # Adjusted position
+            draw.text((powered_x, branding_y), powered_text, fill=text_light, font=font_tiny)
             
             # Save image with maximum quality (PNG for lossless compression)
-            img.save(output_path, 'PNG', optimize=True)
+            # Note: compress_level=1 provides fast compression with good quality
+            # Using optimize=True would override compress_level to 9 (maximum compression)
+            img.save(output_path, 'PNG', compress_level=1)
             
             # Verify file creation
             if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
                 file_size = os.path.getsize(output_path)
-                logger.debug(f"Receipt with enhanced watermark and new header design generated successfully: {file_size} bytes")
+                logger.debug(f"Minimalist high-quality receipt generated successfully: {file_size} bytes")
                 return True
             else:
                 logger.error("Receipt file was not created or is empty")
