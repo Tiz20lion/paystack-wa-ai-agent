@@ -411,7 +411,9 @@ class ReceiptGenerator:
             draw.text((powered_x, branding_y), powered_text, fill=text_light, font=font_tiny)
             
             # Save image with maximum quality (PNG for lossless compression)
-            img.save(output_path, 'PNG', optimize=True, compress_level=1)
+            # Note: compress_level=1 provides fast compression with good quality
+            # Using optimize=True would override compress_level to 9 (maximum compression)
+            img.save(output_path, 'PNG', compress_level=1)
             
             # Verify file creation
             if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
