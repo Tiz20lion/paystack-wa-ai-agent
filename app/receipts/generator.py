@@ -5,6 +5,7 @@ Uses only Pillow (PIL) for creating TizLion AI branded transaction receipts
 
 import os
 import sys
+import subprocess
 from datetime import datetime
 from typing import Dict, Optional
 from pathlib import Path
@@ -246,24 +247,77 @@ class ReceiptGenerator:
             
             # Load system fonts with optimized sizes for minimalist design
             # Scaled for portrait size (1080x1920)
+            # Use proper font paths to avoid fallback to thick default fonts
+            font_display = None
+            font_display_bold = None
+            font_heading = None
+            font_detail = None
+            font_label = None
+            font_caption = None
+            font_tiny = None
+            
             try:
                 if sys.platform.startswith('win'):
-                    font_display = ImageFont.truetype("arial.ttf", 96)  # Large display font for amount (scaled)
-                    font_display_bold = ImageFont.truetype("arialbd.ttf", 96)  # Bold for amount (scaled)
-                    font_heading = ImageFont.truetype("arial.ttf", 36)  # Heading font (scaled)
-                    font_detail = ImageFont.truetype("arial.ttf", 32)  # Consistent font for all details (scaled)
-                    font_label = ImageFont.truetype("arial.ttf", 24)  # Labels (scaled)
-                    font_caption = ImageFont.truetype("arial.ttf", 20)  # Caption/small text (scaled)
-                    font_tiny = ImageFont.truetype("arial.ttf", 18)  # Very small text (scaled)
+                    # Windows: Use proper font paths from Windows Fonts directory
+                    windir = os.environ.get("WINDIR", "C:\\Windows")
+                    windows_fonts_dir = os.path.join(windir, "Fonts")
+                    
+                    # Try Arial fonts first (most common)
+                    arial_path = os.path.join(windows_fonts_dir, "arial.ttf")
+                    arial_bold_path = os.path.join(windows_fonts_dir, "arialbd.ttf")
+                    
+                    if os.path.exists(arial_path):
+                        font_display = ImageFont.truetype(arial_path, 96)
+                        font_heading = ImageFont.truetype(arial_path, 36)
+                        font_detail = ImageFont.truetype(arial_path, 32)
+                        font_label = ImageFont.truetype(arial_path, 24)
+                        font_caption = ImageFont.truetype(arial_path, 20)
+                        font_tiny = ImageFont.truetype(arial_path, 18)
+                        
+                        if os.path.exists(arial_bold_path):
+                            font_display_bold = ImageFont.truetype(arial_bold_path, 96)
+                        else:
+                            font_display_bold = ImageFont.truetype(arial_path, 96)  # Use regular if bold not found
+                    else:
+                        # Fallback: try other common Windows fonts
+                        fallback_fonts = [
+                            os.path.join(windows_fonts_dir, "calibri.ttf"),
+                            os.path.join(windows_fonts_dir, "segoeui.ttf"),
+                            os.path.join(windows_fonts_dir, "tahoma.ttf"),
+                        ]
+                        for font_path in fallback_fonts:
+                            if os.path.exists(font_path):
+                                font_display = ImageFont.truetype(font_path, 96)
+                                font_display_bold = ImageFont.truetype(font_path, 96)
+                                font_heading = ImageFont.truetype(font_path, 36)
+                                font_detail = ImageFont.truetype(font_path, 32)
+                                font_label = ImageFont.truetype(font_path, 24)
+                                font_caption = ImageFont.truetype(font_path, 20)
+                                font_tiny = ImageFont.truetype(font_path, 18)
+                                break
                 else:
-                    # Linux/macOS font paths
-                    font_paths = [
-                        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-                        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-                        "/System/Library/Fonts/Arial.ttf",  # macOS
-                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                    ]
+                    # Linux/macOS: Try multiple font paths
+                    font_paths = []
+                    
+                    if sys.platform == "darwin":
+                        # macOS font paths
+                        font_paths = [
+                            "/System/Library/Fonts/Helvetica.ttc",
+                            "/System/Library/Fonts/Arial.ttf",
+                            "/Library/Fonts/Arial.ttf",
+                            os.path.expanduser("~/Library/Fonts/Arial.ttf"),
+                        ]
+                    else:
+                        # Linux font paths (more comprehensive)
+                        font_paths = [
+                            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+                            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                            "/usr/local/share/fonts/DejaVuSans.ttf",
+                            os.path.expanduser("~/.local/share/fonts/DejaVuSans.ttf"),
+                        ]
                     
                     font_path = None
                     for font in font_paths:
@@ -272,6 +326,7 @@ class ReceiptGenerator:
                             break
                     
                     if font_path:
+                        # Load fonts with proper sizes
                         font_display = ImageFont.truetype(font_path, 96)
                         font_display_bold = ImageFont.truetype(font_path, 96)
                         font_heading = ImageFont.truetype(font_path, 36)
@@ -279,10 +334,45 @@ class ReceiptGenerator:
                         font_label = ImageFont.truetype(font_path, 24)
                         font_caption = ImageFont.truetype(font_path, 20)
                         font_tiny = ImageFont.truetype(font_path, 18)
+                        logger.debug(f"Loaded font from: {font_path}")
                     else:
-                        raise Exception("No suitable font found")
-            except:
-                # Fallback to default fonts
+                        # Try using fontconfig on Linux if available
+                        try:
+                            result = subprocess.run(
+                                ['fc-list', ':family', 'file'],
+                                capture_output=True,
+                                text=True,
+                                timeout=2
+                            )
+                            if result.returncode == 0 and result.stdout:
+                                # Try to find a sans-serif font
+                                for line in result.stdout.split('\n'):
+                                    if 'DejaVu' in line or 'Liberation' in line or 'Noto' in line:
+                                        font_file = line.split(':')[0].strip()
+                                        if os.path.exists(font_file):
+                                            font_path = font_file
+                                            break
+                        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+                            pass
+                        
+                        if font_path and os.path.exists(font_path):
+                            font_display = ImageFont.truetype(font_path, 96)
+                            font_display_bold = ImageFont.truetype(font_path, 96)
+                            font_heading = ImageFont.truetype(font_path, 36)
+                            font_detail = ImageFont.truetype(font_path, 32)
+                            font_label = ImageFont.truetype(font_path, 24)
+                            font_caption = ImageFont.truetype(font_path, 20)
+                            font_tiny = ImageFont.truetype(font_path, 18)
+                            logger.debug(f"Loaded font via fontconfig: {font_path}")
+                
+                # Verify all fonts were loaded
+                if not all([font_display, font_display_bold, font_heading, font_detail, 
+                           font_label, font_caption, font_tiny]):
+                    raise Exception("Failed to load all required fonts")
+                    
+            except Exception as e:
+                logger.warning(f"Font loading failed: {e}, using fallback - fonts may appear thick")
+                # Fallback to default fonts (will be thick but functional)
                 font_display = ImageFont.load_default()
                 font_display_bold = ImageFont.load_default()
                 font_heading = ImageFont.load_default()
