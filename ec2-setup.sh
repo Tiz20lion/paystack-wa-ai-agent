@@ -98,3 +98,5 @@ echo "2. Restart service: sudo systemctl restart paystack-app.service"
 echo "3. Check logs: sudo journalctl -u paystack-app.service -f"
 echo "4. Set up GitHub Actions secrets (see DEPLOYMENT.md)"
 
+
+

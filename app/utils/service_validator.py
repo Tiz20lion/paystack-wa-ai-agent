@@ -155,3 +155,5 @@ def log_service_status():
     logger.info(f"Overall: {'✅ All critical services valid' if results['overall_valid'] else '❌ Some services have issues'}")
     logger.info("=" * 60)
 
+
+
