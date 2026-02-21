@@ -125,10 +125,28 @@ def setup_env_file():
         print_status(".env file exists")
 
 
+def free_port_on_linux(port: int):
+    """On Linux, try to free the given port so the app can bind (avoid 'Address already in use')."""
+    if platform.system().lower() != "linux":
+        return
+    try:
+        subprocess.run(
+            ["sh", "-c", f"fuser -k {port}/tcp 2>/dev/null || true"],
+            capture_output=True,
+            timeout=5,
+        )
+        import time
+        time.sleep(1)
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        pass
+
+
 def start_application(mode="api", host="127.0.0.1", port=8000):
     """Start the application."""
+    if mode in ("api", "both"):
+        free_port_on_linux(port)
     python_path = get_python_path()
-    
+
     # Build command
     cmd = [python_path, "main.py"]
     

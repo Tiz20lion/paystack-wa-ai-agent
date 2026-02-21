@@ -1,10 +1,39 @@
 """Interactive CLI application for Paystack operations."""
 
 import asyncio
+import select
 import sys
 import uuid
-import msvcrt  # Windows-specific for arrow key handling
 from typing import Optional, Dict, List
+
+# Cross-platform key reading: msvcrt on Windows, termios on Linux/Unix
+if sys.platform == "win32":
+    import msvcrt
+    def _read_key() -> bytes:
+        key = msvcrt.getch()
+        if key == b"\xe0":  # Windows arrow key prefix
+            key += msvcrt.getch()
+        return key
+else:
+    import tty
+    import termios
+    def _read_key() -> bytes:
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.buffer.read(1)
+            if ch == b"\x1b":  # ESC, could be escape or arrow
+                if sys.stdin.buffer in select.select([sys.stdin.buffer], [], [], 0.05)[0]:
+                    c2 = sys.stdin.buffer.read(1)
+                    if c2 == b"[" and sys.stdin.buffer in select.select([sys.stdin.buffer], [], [], 0.05)[0]:
+                        c3 = sys.stdin.buffer.read(1)
+                        if c3 in (b"A", b"B", b"C", b"D"):
+                            return b"\x1b" + c2 + c3
+                return b"\x1b"
+            return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -563,20 +592,16 @@ class PaystackCLI:
             console.print()
             console.print("[dim]Use ↑/↓ arrow keys to navigate, Enter to select, Esc to exit[/dim]")
             
-            # Get key input
-            key = msvcrt.getch()
-            
-            if key == b'\x1b':  # Escape key
+            key = _read_key()
+            if key == b"\x1b":  # Escape key (or single ESC on Linux)
                 return -1
-            elif key == b'\r':  # Enter key
+            if key == b"\r":  # Enter key
                 return selected
-            elif key == b'\xe0':  # Arrow key prefix on Windows
-                arrow_key = msvcrt.getch()
-                if arrow_key == b'H':  # Up arrow
-                    selected = (selected - 1) % len(options)
-                elif arrow_key == b'P':  # Down arrow
-                    selected = (selected + 1) % len(options)
-            elif key == b'\x03':  # Ctrl+C
+            if key in (b"\xe0H", b"\x1b[A"):  # Up: Windows or Linux
+                selected = (selected - 1) % len(options)
+            elif key in (b"\xe0P", b"\x1b[B"):  # Down: Windows or Linux
+                selected = (selected + 1) % len(options)
+            elif key == b"\x03":  # Ctrl+C
                 raise KeyboardInterrupt
     
     def run_menu(self):
