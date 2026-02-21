@@ -201,12 +201,15 @@ async def startup_webhook_check():
             "Set WEBHOOK_URL in .env to the exact URL from Twilio Console (e.g. http://YOUR_IP:8000/whatsapp/webhook) so signature validation passes."
         )
     if telegram_service and getattr(telegram_service, "token", None):
-        use_polling = getattr(settings, "telegram_use_polling", True)
-        if use_polling:
-            asyncio.create_task(_telegram_poll_loop())
-            logger.info("Telegram chat interface enabled (long polling); no webhook required. Set TELEGRAM_USE_POLLING=false if using webhook.")
-        else:
-            logger.info("Telegram chat interface enabled; set webhook URL in BotFather to https://<your-domain>/telegram/webhook")
+        try:
+            info = await telegram_service.get_webhook_info()
+            if info.get("url"):
+                logger.info("Telegram webhook is set; removing it so long polling can receive updates.")
+                await telegram_service.delete_webhook()
+        except Exception as e:
+            logger.warning(f"Telegram webhook check: {e}")
+        asyncio.create_task(_telegram_poll_loop())
+        logger.info("Telegram chat interface enabled (long polling); no webhook required. Using chat_id and Bot API for replies.")
 
 
 # Dependency to check API key for protected endpoints
@@ -891,7 +894,7 @@ async def handle_image_message(
 # =============================================================================
 
 async def _process_telegram_message(body: Dict[str, Any]) -> None:
-    """Process one Telegram update (message). Used by webhook and by long polling. Sends reply via telegram_service."""
+    """Process one Telegram update (message). Used by webhook and by long polling. Sends reply via Telegram Bot API using chat_id."""
     if not AI_SERVICES_AVAILABLE or not telegram_service or not getattr(telegram_service, "token", None):
         return
     message = body.get("message")
@@ -899,16 +902,19 @@ async def _process_telegram_message(body: Dict[str, Any]) -> None:
         return
     chat_id = message.get("chat", {}).get("id")
     if chat_id is None:
+        logger.warning("Telegram update has no chat.id, skipping")
         return
-    user_info = {"user_id": str(chat_id)}
+    chat_id_str = str(chat_id)
+    user_info = {"user_id": chat_id_str}
     text = (message.get("text") or "").strip()
     photo = message.get("photo")
+    logger.info(f"Telegram message from chat_id={chat_id_str}: text={text[:50] if text else '(photo)'}")
 
     async def send_follow_up(uid: str, msg: str):
-        await telegram_service.send_message(uid, msg)
+        await telegram_service.send_message(chat_id_str, msg)
 
     async def send_receipt(uid: str, image_bytes: bytes, caption: str):
-        await telegram_service.send_photo(uid, image_bytes, caption)
+        await telegram_service.send_photo(chat_id_str, image_bytes, caption)
 
     async def download_media(mc: Dict[str, Any]):
         fid = mc.get("telegram_file_id")
@@ -936,23 +942,27 @@ async def _process_telegram_message(body: Dict[str, Any]) -> None:
                 send_follow_up_callback=send_follow_up,
                 send_receipt_callback=send_receipt,
             )
-        await telegram_service.send_message(str(chat_id), response_text or "Done.")
+        await telegram_service.send_message(chat_id_str, response_text or "Done.")
+        logger.info(f"Telegram reply sent to chat_id={chat_id_str}")
     except Exception as e:
         logger.error(f"Telegram message error: {e}")
         try:
-            await telegram_service.send_message(str(chat_id), "Sorry, I had trouble processing that. Please try again.")
+            await telegram_service.send_message(chat_id_str, "Sorry, I had trouble processing that. Please try again.")
         except Exception:
             pass
 
 
 async def _telegram_poll_loop() -> None:
-    """Background loop: long poll getUpdates and process each message. Runs when TELEGRAM_USE_POLLING is True."""
+    """Background loop: long poll getUpdates (Telegram Bot API) and process each message; replies use chat_id."""
     if not telegram_service or not getattr(telegram_service, "token", None):
         return
     offset: Optional[int] = None
+    logger.info("Telegram getUpdates poll loop started")
     while True:
         try:
             updates, offset = await telegram_service.get_updates(offset=offset, timeout=25)
+            if updates:
+                logger.info(f"Telegram getUpdates received {len(updates)} update(s)")
             for update in updates:
                 body = {"message": update.get("message")}
                 if body.get("message"):
@@ -960,7 +970,7 @@ async def _telegram_poll_loop() -> None:
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.debug(f"Telegram poll error: {e}")
+            logger.warning(f"Telegram poll error: {e}")
             await asyncio.sleep(2)
 
 

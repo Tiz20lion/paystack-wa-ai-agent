@@ -102,6 +102,35 @@ class TelegramService:
             logger.error(f"Telegram download_media error: {e}")
             return None
 
+    async def get_webhook_info(self) -> Dict[str, Any]:
+        """Return getWebhookInfo result. If result.url is set, getUpdates will not receive updates."""
+        if not self._enabled():
+            return {}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get(f"{self._base_url}/getWebhookInfo")
+                data = r.json()
+                return data.get("result", {}) if data.get("ok") else {}
+        except Exception as e:
+            logger.debug(f"Telegram getWebhookInfo error: {e}")
+            return {}
+
+    async def delete_webhook(self) -> bool:
+        """Remove webhook so getUpdates (long polling) can receive updates. Returns True on success."""
+        if not self._enabled():
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.post(f"{self._base_url}/deleteWebhook")
+                data = r.json()
+                ok = data.get("ok", False)
+                if ok:
+                    logger.info("Telegram webhook removed; long polling can receive updates.")
+                return ok
+        except Exception as e:
+            logger.warning(f"Telegram deleteWebhook error: {e}")
+            return False
+
     async def get_updates(
         self, offset: Optional[int] = None, timeout: int = 25
     ) -> Tuple[List[Dict[str, Any]], int]:
