@@ -880,20 +880,17 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
                         save_result = await self.memory.save_recipient(user_id, recipient_data)
                         if save_result:
                             logger.info(f"✅ Auto-saved recipient {account_name} for user {user_id}")
-                            
                     except Exception as save_error:
                         logger.error(f"Auto-save recipient failed: {save_error}")
-                    
-                    # Generate and send receipt
+                    # Generate and send receipt; await when Telegram callback so image is sent before reply
+                    if send_receipt_callback:
+                        await self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback, send_receipt_callback)
+                    else:
                         asyncio.create_task(
                             self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback, send_receipt_callback)
                         )
-                    
-                    # Return simple success message (receipt will be sent separately)
                     return f"✅ **Transfer Successful**\n\n₦{amount:,.2f} sent to {account_name}."
-                
                 return "❌ **Transfer Failed**\n\nSomething went wrong while processing your transfer. Please try again."
-                    
             except Exception as transfer_error:
                 logger.error(f"Direct transfer processing failed: {transfer_error}")
                 
