@@ -264,26 +264,31 @@ class WhatsAppService:
         if not has_body and not has_media:
             return True
 
-        url_for_signature = (validation_url or request_url) if (validation_url or request_url) else request_url
-        if self.validator and url_for_signature and signature:
+        if not self.validator or not signature:
+            return True
+        urls_to_try = []
+        if validation_url:
+            urls_to_try.append(validation_url.strip())
+        if request_url and request_url not in urls_to_try:
+            urls_to_try.append(request_url)
+        if not urls_to_try:
+            return True
+        params = {}
+        for k, v in request_data.items():
+            if hasattr(v, "read"):
+                continue
+            params[k] = v[0] if isinstance(v, (list, tuple)) else v
+        params = {k: str(v) for k, v in params.items()}
+        for url in urls_to_try:
             try:
-                params = dict(request_data)
-                is_valid = self.validator.validate(url_for_signature, params, signature)
-                if not is_valid:
-                    logger.warning(f"Invalid Twilio webhook signature from {request_data.get('From', 'Unknown')}")
-                    return False
-                logger.debug("Twilio webhook signature verified successfully")
-                return True
+                if self.validator.validate(url, params, signature):
+                    logger.debug("Twilio webhook signature verified successfully")
+                    return True
             except Exception as e:
-                logger.error(f"Error validating Twilio signature: {e}")
-                return False
-        elif self.validator and (not url_for_signature or not signature):
-            logger.debug("Twilio validator configured but URL/signature not provided - skipping signature verification (backwards compatibility)")
-            return True
-        else:
-            logger.debug("Twilio validator not initialized - skipping signature verification")
-            return True
-    
+                logger.debug(f"Signature validation with URL failed: {e}")
+        logger.warning(f"Invalid Twilio webhook signature from {request_data.get('From', 'Unknown')}")
+        return False
+
     def extract_user_info(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """Extract user information from webhook request."""
         phone_number = request_data.get('From', '').replace('whatsapp:', '')

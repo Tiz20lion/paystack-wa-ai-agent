@@ -177,15 +177,20 @@ async def general_exception_handler(request, exc: Exception):
 
 @app.on_event("startup")
 async def startup_webhook_check():
-    """Warn if Twilio is configured but server is bound to localhost (WhatsApp will not receive messages)."""
+    """Warn if Twilio is configured but server is bound to localhost or WEBHOOK_URL is unset."""
     if not getattr(settings, "twilio_account_sid", None) or not settings.twilio_account_sid:
         return
     host = getattr(settings, "api_host", "127.0.0.1")
     if host == "127.0.0.1" or host == "localhost":
         logger.warning(
             "Twilio is configured but API_HOST is %s. Twilio cannot reach localhost. "
-            "On VPS set API_HOST=0.0.0.0 and use a public HTTPS URL in Twilio webhook.",
+            "On VPS set API_HOST=0.0.0.0.",
             host,
+        )
+    webhook_url = (getattr(settings, "webhook_url", "") or "").strip()
+    if not webhook_url:
+        logger.info(
+            "Set WEBHOOK_URL in .env to the exact URL from Twilio Console (e.g. http://YOUR_IP:8000/whatsapp/webhook) so signature validation passes."
         )
 
 
