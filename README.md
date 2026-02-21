@@ -1,6 +1,6 @@
 # Paystack WhatsApp AI Agent
 
-🤖 **AI-powered banking assistant for WhatsApp** - Send money, check balance, and manage finances through natural conversations.
+🤖 **AI-powered banking assistant** - Send money, check balance, and manage finances through natural chat on **WhatsApp** or **Telegram**.
 
 ## Features
 
@@ -49,6 +49,11 @@ TWILIO_AUTH_TOKEN=...
 TWILIO_WHATSAPP_NUMBER=whatsapp:+...
 WEBHOOK_URL=https://your-domain.com/whatsapp/webhook
 
+# Telegram (optional chat interface)
+# Set webhook in BotFather to https://<your-domain>/telegram/webhook
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+
 # AI Features
 OPENROUTER_API_KEY=...
 
@@ -84,6 +89,7 @@ AI: "You've spent ₦45,000 this week: ₦30k transfers, ₦15k airtime."
 ## API Endpoints
 
 - `POST /whatsapp/webhook` - WhatsApp webhook (Twilio signature verified)
+- `POST /telegram/webhook` - Telegram bot webhook (optional; set in BotFather to `https://<your-domain>/telegram/webhook`)
 - `GET /api/balance` - Check balance (requires API key)
 - `POST /api/transfers` - Send money (requires API key)
 - `GET /api/transfers` - Transaction history (requires API key)
@@ -111,14 +117,14 @@ This application can also be deployed on:
 - **DigitalOcean App Platform**: Simple deployment
 - **Docker**: Containerized deployment
 
-**Security:** All `/api/*` endpoints require `X-API-Key` header. WhatsApp webhook is protected by Twilio signature verification.
+**Security:** All `/api/*` endpoints require `X-API-Key` header. WhatsApp webhook is protected by Twilio signature verification. Telegram webhook can use `TELEGRAM_WEBHOOK_SECRET` and the `X-Telegram-Bot-Api-Secret-Token` header.
 
 ## Project Structure
 
 ```
 ├── app/
 │   ├── agents/          # AI banking logic
-│   ├── services/        # Paystack, WhatsApp, OCR
+│   ├── services/        # Paystack, WhatsApp, Telegram, OCR
 │   └── utils/           # Helpers (bank resolver, amount converter)
 ├── api_server.py        # FastAPI server
 ├── start.py             # Setup & run script
@@ -137,4 +143,4 @@ This application can also be deployed on:
 
 🔗 [LinkedIn](https://www.linkedin.com/in/olajide-azeez-a2133a258) | [Instagram](https://www.instagram.com/tizkiya/#) | [YouTube](https://www.youtube.com/@TizLionAI) | [GitHub](https://github.com/Tiz20lion/paystack-wa-ai-agent)
 
-**License:** MIT | **Built with:** Paystack, Twilio, OpenRouter, MongoDB, FastAPI
+**License:** MIT | **Built with:** Paystack, Twilio, Telegram Bot API, OpenRouter, MongoDB, FastAPI
