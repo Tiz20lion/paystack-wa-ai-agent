@@ -242,21 +242,22 @@ class TransferHandler:
             )
             return f"❌ Transfer request failed: {str(e)}"
     
-    async def _process_transfer_request_background(self, user_id: str, message: str, entities: Dict, balance_handler):
+    async def _process_transfer_request_background(self, user_id: str, message: str, entities: Dict, balance_handler, send_follow_up_callback=None):
         """Process transfer request in background and send second response."""
         try:
             logger.info(f"🔄 Starting background transfer request processing for user {user_id}")
-            
-            # Process the transfer request
             result = await self._handle_transfer_request_traditional(user_id, message, entities, balance_handler)
-            
-            # Send the detailed response as second message
-            await self._send_follow_up_message(user_id, result)
+            if send_follow_up_callback:
+                await send_follow_up_callback(user_id, result)
+            else:
+                await self._send_follow_up_message(user_id, result)
             logger.info(f"✅ Background transfer request processing completed for user {user_id}")
-            
         except Exception as e:
             logger.error(f"Background transfer request processing failed: {e}")
-            await self._send_follow_up_message(user_id, "Something went wrong while processing your transfer request. Please try again.")
+            if send_follow_up_callback:
+                await send_follow_up_callback(user_id, "Something went wrong while processing your transfer request. Please try again.")
+            else:
+                await self._send_follow_up_message(user_id, "Something went wrong while processing your transfer request. Please try again.")
     
     async def _handle_transfer_request_traditional(self, user_id: str, message: str, entities: Dict, balance_handler) -> str:
         """Traditional transfer request handler (fallback method)."""
@@ -338,21 +339,22 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             # Fallback to traditional method if background processing fails
             return await self._handle_account_resolution_traditional(user_id, entities, memory_manager)
     
-    async def _process_account_resolution_background(self, user_id: str, entities: Dict, memory_manager):
+    async def _process_account_resolution_background(self, user_id: str, entities: Dict, memory_manager, send_follow_up_callback=None):
         """Process account resolution in background and send second response."""
         try:
             logger.info(f"🔄 Starting background account resolution for user {user_id}")
-            
-            # Process the account resolution
             result = await self._handle_account_resolution_traditional(user_id, entities, memory_manager)
-            
-            # Send the detailed response as second message
-            await self._send_follow_up_message(user_id, result)
+            if send_follow_up_callback:
+                await send_follow_up_callback(user_id, result)
+            else:
+                await self._send_follow_up_message(user_id, result)
             logger.info(f"✅ Background account resolution completed for user {user_id}")
-            
         except Exception as e:
             logger.error(f"Background account resolution failed: {e}")
-            await self._send_follow_up_message(user_id, "Something went wrong while resolving the account. Please try again.")
+            if send_follow_up_callback:
+                await send_follow_up_callback(user_id, "Something went wrong while resolving the account. Please try again.")
+            else:
+                await self._send_follow_up_message(user_id, "Something went wrong while resolving the account. Please try again.")
     
     async def _handle_account_resolution_traditional(self, user_id: str, entities: Dict, memory_manager) -> str:
         """Traditional account resolution handler (fallback method)."""
@@ -426,21 +428,22 @@ How much would you like to send?"""
             logger.error(f"Transfer confirmation handling failed: {e}")
             return "Sorry, I couldn't process your confirmation. Please try again."
     
-    async def _process_transfer_confirmation_background(self, user_id: str, state: Dict):
+    async def _process_transfer_confirmation_background(self, user_id: str, state: Dict, send_follow_up_callback=None):
         """Process transfer confirmation in background and send second response."""
         try:
             logger.info(f"🔄 Starting background transfer confirmation for user {user_id}")
-            
-            # Process the actual transfer
             result = await self._process_transfer(user_id, state)
-            
-            # Send the detailed response as second message
-            await self._send_follow_up_message(user_id, result)
+            if send_follow_up_callback:
+                await send_follow_up_callback(user_id, result)
+            else:
+                await self._send_follow_up_message(user_id, result)
             logger.info(f"✅ Background transfer confirmation completed for user {user_id}")
-            
         except Exception as e:
             logger.error(f"Background transfer confirmation failed: {e}")
-            await self._send_follow_up_message(user_id, "Something went wrong while processing your transfer. Please try again.")
+            if send_follow_up_callback:
+                await send_follow_up_callback(user_id, "Something went wrong while processing your transfer. Please try again.")
+            else:
+                await self._send_follow_up_message(user_id, "Something went wrong while processing your transfer. Please try again.")
 
     async def handle_direct_transfer_confirmation(self, user_id: str, intent: str, entities: Dict, state: Dict) -> str:
         """Handle direct transfer confirmation with two-way messaging."""

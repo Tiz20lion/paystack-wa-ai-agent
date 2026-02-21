@@ -111,6 +111,16 @@ def validate_twilio_config() -> Dict[str, bool]:
     }
 
 
+def validate_telegram_config() -> Dict[str, bool]:
+    """Validate Telegram bot configuration (optional chat interface)."""
+    token = (getattr(settings, "telegram_bot_token", None) or "").strip()
+    return {
+        "valid": bool(token),
+        "issues": [],
+        "warnings": [] if token else ["TELEGRAM_BOT_TOKEN not set - Telegram chat disabled"],
+    }
+
+
 def validate_all_services() -> Dict[str, any]:
     """Validate all service configurations."""
     results = {
@@ -118,6 +128,7 @@ def validate_all_services() -> Dict[str, any]:
         "ai": validate_ai_config(),
         "mongodb": validate_mongodb_config(),
         "twilio": validate_twilio_config(),
+        "telegram": validate_telegram_config(),
         "overall_valid": True
     }
     
@@ -152,6 +163,7 @@ def log_service_status():
     logger.info(f"AI/OpenRouter: {'✅ Enabled' if results['ai']['ai_enabled'] else '⚠️  Disabled'}")
     logger.info(f"MongoDB: {'✅ Configured' if results['mongodb']['valid'] else '⚠️  Using defaults'}")
     logger.info(f"Twilio: {'✅ Configured' if results['twilio']['valid'] else '⚠️  Not configured'}")
+    logger.info(f"Telegram: {'✅ Configured' if results['telegram']['valid'] else '⚠️  Not configured'}")
     logger.info(f"Overall: {'✅ All critical services valid' if results['overall_valid'] else '❌ Some services have issues'}")
     logger.info("=" * 60)
 

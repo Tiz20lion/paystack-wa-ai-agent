@@ -60,15 +60,23 @@ try:
     )
     whatsapp_service = WhatsAppService()
     ocr_service = OCRService()
-    
+    telegram_service = None
+    try:
+        from app.services.telegram_service import TelegramService
+        telegram_service = TelegramService()
+    except ImportError:
+        pass
+
     AI_SERVICES_AVAILABLE = True
     logger.info("AI services initialized successfully")
 except ImportError as e:
     logger.warning(f"AI services not available: {e}")
     AI_SERVICES_AVAILABLE = False
+    telegram_service = None
 except Exception as e:
     logger.error(f"Error initializing AI services: {e}")
     AI_SERVICES_AVAILABLE = False
+    telegram_service = None
 
 # Create FastAPI app
 app = FastAPI(
@@ -90,7 +98,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST"],  # Only allow necessary methods
-    allow_headers=["Content-Type", "X-Twilio-Signature", "X-API-Key"],  # Only necessary headers
+    allow_headers=["Content-Type", "X-Twilio-Signature", "X-API-Key", "X-Telegram-Bot-Api-Secret-Token"],
 )
 
 # Mount static files for receipt images
@@ -192,6 +200,8 @@ async def startup_webhook_check():
         logger.info(
             "Set WEBHOOK_URL in .env to the exact URL from Twilio Console (e.g. http://YOUR_IP:8000/whatsapp/webhook) so signature validation passes."
         )
+    if telegram_service and getattr(telegram_service, "token", None):
+        logger.info("Telegram chat interface enabled; set webhook URL in BotFather to https://<your-domain>/telegram/webhook")
 
 
 # Dependency to check API key for protected endpoints
@@ -778,17 +788,20 @@ async def whatsapp_webhook(request: Request):
         )
 
 
-async def handle_text_message(user_info: Dict[str, Any], message_content: Dict[str, Any]) -> str:
-    """Handle text message from WhatsApp."""
-    
-    user_id = user_info['user_id']
-    text = message_content.get('text', '').strip()
-    
+async def handle_text_message(
+    user_info: Dict[str, Any],
+    message_content: Dict[str, Any],
+    send_follow_up_callback=None,
+    send_receipt_callback=None,
+) -> str:
+    """Handle text message. If callbacks are None, uses WhatsApp."""
+    user_id = user_info["user_id"]
+    text = message_content.get("text", "").strip()
+
     if not text:
         return "👋 Hello! I'm your financial assistant. How can I help you today?"
-    
-    # Check for help command
-    if text.lower() in ['help', 'menu', 'commands']:
+
+    if text.lower() in ["help", "menu", "commands"]:
         return """
 🤖 **Your Financial Assistant**
 
@@ -801,75 +814,145 @@ async def handle_text_message(user_info: Dict[str, Any], message_content: Dict[s
 
 Just chat naturally! I understand Nigerian banking terms.
 """
-    
-    # Create follow-up callback function
-    async def send_follow_up_callback(user_id: str, follow_up_message: str):
-        """Send follow-up message to user."""
-        try:
-            # Send follow-up message via WhatsApp
-            await whatsapp_service.send_message(f"whatsapp:{user_id}", follow_up_message)
-            logger.info(f"Follow-up message sent to {user_id}")
-        except Exception as e:
-            logger.error(f"Failed to send follow-up message to {user_id}: {e}")
-    
-    # Process message with financial agent
+    if send_follow_up_callback is None:
+        async def _whatsapp_follow_up(uid: str, msg: str):
+            try:
+                await whatsapp_service.send_message(f"whatsapp:{uid}", msg)
+                logger.info(f"Follow-up message sent to {uid}")
+            except Exception as e:
+                logger.error(f"Failed to send follow-up message to {uid}: {e}")
+        send_follow_up_callback = _whatsapp_follow_up
+
     try:
         response = await financial_agent.process_message(
             user_id=user_id,
             message=text,
-            send_follow_up_callback=send_follow_up_callback
+            send_follow_up_callback=send_follow_up_callback,
+            send_receipt_callback=send_receipt_callback,
         )
-        
         return response
-        
     except Exception as e:
         logger.error(f"Error processing with financial agent: {e}")
         return "Sorry, I'm having trouble processing your request. Please try again."
 
 
-async def handle_image_message(user_info: Dict[str, Any], message_content: Dict[str, Any]) -> str:
-    """Handle image message from WhatsApp."""
-    
-    user_id = user_info['user_id']
-    media_url = message_content.get('media_url', '')
-    
-    if not media_url:
-        return "I couldn't access the image. Please try sending it again."
-    
-    try:
-        # Download image from WhatsApp
+async def handle_image_message(
+    user_info: Dict[str, Any],
+    message_content: Dict[str, Any],
+    send_follow_up_callback=None,
+    download_media_func=None,
+    send_receipt_callback=None,
+) -> str:
+    """Handle image message. If download_media_func is None, uses WhatsApp media_url."""
+    user_id = user_info["user_id"]
+
+    if download_media_func is not None:
+        image_data = await download_media_func(message_content)
+    else:
+        media_url = message_content.get("media_url", "")
+        if not media_url:
+            return "I couldn't access the image. Please try sending it again."
         image_data = await whatsapp_service.download_media(media_url)
-        
-        if not image_data:
-            return "I couldn't download the image. Please try again."
-        
-        # Process with OCR
+
+    if not image_data:
+        return "I couldn't download the image. Please try again."
+
+    try:
         ocr_result = await ocr_service.extract_bank_details(image_data)
-        
-        if ocr_result.get('has_essential_info', False):
-            # Extract account details
-            extracted = ocr_result['extracted_data']
-            account_number = extracted.get('account_number', '')
-            bank_name = extracted.get('bank_name', '')
-            
-            # If we have account number and bank, automatically resolve
+
+        if ocr_result.get("has_essential_info", False):
+            extracted = ocr_result["extracted_data"]
+            account_number = extracted.get("account_number", "")
+            bank_name = extracted.get("bank_name", "")
+
             if account_number and bank_name:
                 resolve_message = f"resolve {account_number} {bank_name}"
-                
-                # Process with financial agent
                 response = await financial_agent.process_message(
                     user_id=user_id,
-                    message=resolve_message
+                    message=resolve_message,
+                    send_follow_up_callback=send_follow_up_callback,
+                    send_receipt_callback=send_receipt_callback,
                 )
-                
                 return response
-        
-        # Format the OCR result for display
+
         return ocr_service.format_extraction_result(ocr_result)
-        
     except Exception as e:
         logger.error(f"Error processing image: {e}")
         return "I had trouble processing the image. Please try again with a clearer image."
+
+
+# =============================================================================
+# TELEGRAM WEBHOOK
+# =============================================================================
+
+@app.post("/telegram/webhook")
+@limiter.limit("100/minute")
+async def telegram_webhook(request: Request):
+    """Handle incoming Telegram bot updates (messages). Reply with 200 quickly; process then send response."""
+    if not AI_SERVICES_AVAILABLE or not telegram_service or not getattr(telegram_service, "token", None):
+        return Response(status_code=200)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return Response(status_code=200)
+
+    secret = (getattr(settings, "telegram_webhook_secret", None) or "").strip()
+    if secret and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != secret:
+        return Response(status_code=403)
+
+    message = body.get("message")
+    if not message:
+        return Response(status_code=200)
+
+    chat_id = message.get("chat", {}).get("id")
+    if chat_id is None:
+        return Response(status_code=200)
+
+    user_info = {"user_id": str(chat_id)}
+    text = (message.get("text") or "").strip()
+    photo = message.get("photo")
+
+    async def send_follow_up(uid: str, msg: str):
+        await telegram_service.send_message(uid, msg)
+
+    async def send_receipt(uid: str, image_bytes: bytes, caption: str):
+        await telegram_service.send_photo(uid, image_bytes, caption)
+
+    async def download_media(mc: Dict[str, Any]):
+        fid = mc.get("telegram_file_id")
+        return await telegram_service.download_media(fid) if fid else None
+
+    try:
+        if photo and isinstance(photo, list) and len(photo) > 0:
+            file_id = photo[-1].get("file_id")
+            if not file_id:
+                response_text = "I couldn't get the photo. Please try again."
+            else:
+                message_content = {"text": "", "num_media": 1, "telegram_file_id": file_id}
+                response_text = await handle_image_message(
+                    user_info,
+                    message_content,
+                    send_follow_up_callback=send_follow_up,
+                    download_media_func=download_media,
+                    send_receipt_callback=send_receipt,
+                )
+        else:
+            message_content = {"text": text, "num_media": 0}
+            response_text = await handle_text_message(
+                user_info,
+                message_content,
+                send_follow_up_callback=send_follow_up,
+                send_receipt_callback=send_receipt,
+            )
+        await telegram_service.send_message(str(chat_id), response_text or "Done.")
+    except Exception as e:
+        logger.error(f"Telegram webhook error: {e}")
+        try:
+            await telegram_service.send_message(str(chat_id), "Sorry, I had trouble processing that. Please try again.")
+        except Exception:
+            pass
+    return Response(status_code=200)
 
 
 # Test endpoint for WhatsApp integration

@@ -56,7 +56,11 @@ class Settings(BaseSettings):
     # Webhook Configuration
     webhook_url: str = Field(default="", alias="WEBHOOK_URL")
     webhook_secret: str = Field(default="", alias="WEBHOOK_SECRET")
-    
+
+    # Telegram Bot (chat interface)
+    telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
+    telegram_webhook_secret: str = Field(default="", alias="TELEGRAM_WEBHOOK_SECRET")
+
     # Security
     jwt_secret_key: str = Field(default="your-secret-key", alias="JWT_SECRET_KEY")
     cors_origins: List[str] = Field(

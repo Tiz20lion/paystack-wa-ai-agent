@@ -70,15 +70,22 @@ class FinancialAgent:
         
         logger.info("✅ Financial Agent initialized with specialized handlers")
     
-    async def process_message(self, user_id: str, message: str, send_follow_up_callback=None) -> str:
+    async def process_message(
+        self,
+        user_id: str,
+        message: str,
+        send_follow_up_callback=None,
+        send_receipt_callback=None,
+    ) -> str:
         """
         Main message processing method with comprehensive memory and context storage.
-        
+
         Args:
             user_id: User identifier
             message: User message
             send_follow_up_callback: Optional callback for sending follow-up messages
-            
+            send_receipt_callback: Optional callback for sending receipt images (e.g. Telegram)
+
         Returns:
             str: Response message
         """
@@ -124,7 +131,7 @@ class FinancialAgent:
                     response = await self._handle_greeting_during_transaction(user_id, message, state, temp_intent)
                 else:
                     logger.info(f"🔄 Processing message through conversation state handler")
-                    response = await self._handle_conversation_state(user_id, message, state, send_follow_up_callback)
+                    response = await self._handle_conversation_state(user_id, message, state, send_follow_up_callback, send_receipt_callback)
             else:
                 # Clear expired state if exists
                 if state:
@@ -143,7 +150,7 @@ class FinancialAgent:
                 })
                 
                 # Route to appropriate handler based on intent
-                response = await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback)
+                response = await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback, send_receipt_callback)
             
             # Save assistant response to memory with metadata
             await self.memory.save_message(user_id, response, "assistant", {
@@ -165,22 +172,18 @@ class FinancialAgent:
             # Use LLM-based error response instead of static template
             return await self._handle_error_response(user_id, message, str(e))
     
-    async def _handle_conversation_state(self, user_id: str, message: str, state: Dict, send_follow_up_callback) -> str:
+    async def _handle_conversation_state(self, user_id: str, message: str, state: Dict, send_follow_up_callback, send_receipt_callback=None) -> str:
         """Handle conversation states (confirmations, follow-ups, etc.)."""
-        
         try:
-            state_type = state.get('type')
+            state_type = state.get("type")
             intent, entities = self.message_processor.parse_message(message)
-            
-            # Check if user wants to clear state
+
             if self.conversation_state.should_clear_state(state, message):
                 await self.memory.clear_conversation_state(user_id)
-                return await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback)
-            
-            # Route to appropriate handler based on state type
-            if state_type in ['transfer_pending_confirmation', 'direct_transfer_pending_confirmation', 'beneficiary_transfer_pending_confirmation', 'account_bank_amount_transfer_pending_confirmation']:
-                # Handle pending confirmations with our new method
-                return await self._handle_pending_confirmation(user_id, message, state, send_follow_up_callback)
+                return await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback, send_receipt_callback)
+
+            if state_type in ["transfer_pending_confirmation", "direct_transfer_pending_confirmation", "beneficiary_transfer_pending_confirmation", "account_bank_amount_transfer_pending_confirmation"]:
+                return await self._handle_pending_confirmation(user_id, message, state, send_follow_up_callback, send_receipt_callback)
             
             elif state_type == 'beneficiary_transfer_pending_amount':
                 # Handle amount input for beneficiary transfer
@@ -275,16 +278,14 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             # account_bank_amount_transfer_pending_confirmation is now handled by _handle_pending_confirmation above
             
             else:
-                # Unknown state, clear it and process normally
                 await self.memory.clear_conversation_state(user_id)
-                return await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback)
-                
+                return await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback, send_receipt_callback)
         except Exception as e:
             logger.error(f"Conversation state handling failed: {e}")
             await self.memory.clear_conversation_state(user_id)
             return await self._handle_error_response(user_id, message, str(e))
-    
-    async def _route_to_handler(self, user_id: str, message: str, intent: str, entities: Dict, send_follow_up_callback=None) -> str:
+
+    async def _route_to_handler(self, user_id: str, message: str, intent: str, entities: Dict, send_follow_up_callback=None, send_receipt_callback=None) -> str:
         """Enhanced routing with clear separation between banking and conversational intents."""
         
         # Define banking intents that require specific handlers
@@ -305,29 +306,23 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
         if intent == "confirmation":
             return "I'm not sure what you're confirming right now. Is there anything I can help you with? 😊"
         
-        # Route banking intents to their specific handlers
         if intent in banking_intents:
-            return await self._handle_banking_intent(user_id, message, intent, entities, send_follow_up_callback)
-        
-        # Route conversational intents to AI for ChatGPT-like responses
+            return await self._handle_banking_intent(user_id, message, intent, entities, send_follow_up_callback, send_receipt_callback)
+
         elif intent in conversational_intents:
             return await self._handle_conversational_intent(user_id, message, intent, entities, send_follow_up_callback)
-        
-        # Special handling for conversation with banking context
+
         elif intent == "conversation" and entities:
             transfer_context = await self._analyze_transfer_context(user_id, message, entities)
             if transfer_context:
                 return await self._handle_conversational_transfer(user_id, message, entities, transfer_context, send_follow_up_callback)
             else:
-                # No banking context, treat as regular conversation
                 return await self._handle_conversational_intent(user_id, message, intent, entities, send_follow_up_callback)
-        
-        # Default: Unknown intent - use AI for intelligent fallback
         else:
             logger.info(f"Unknown intent '{intent}' - routing to AI handler for intelligent fallback")
             return await self._handle_conversational_intent(user_id, message, intent, entities, send_follow_up_callback)
 
-    async def _handle_banking_intent(self, user_id: str, message: str, intent: str, entities: Dict, send_follow_up_callback=None) -> str:
+    async def _handle_banking_intent(self, user_id: str, message: str, intent: str, entities: Dict, send_follow_up_callback=None, send_receipt_callback=None) -> str:
         """Handle banking-specific intents."""
         
         if intent == "balance":
@@ -355,11 +350,10 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
                 return await self.history_handler.handle_transfers_sent_request(user_id, message, entities)
         
         elif intent in ["transfer", "named_transfer_with_account"]:
-            # Check if there's an existing conversation state that this transfer might be continuing
             existing_state = await self.memory.get_conversation_state(user_id)
-            if existing_state and existing_state.get('type') == 'account_resolution_pending_amount':
-                logger.info(f"🔄 Transfer intent detected but found existing account resolution state - using conversation state handler")
-                return await self._handle_conversation_state(user_id, message, existing_state, send_follow_up_callback)
+            if existing_state and existing_state.get("type") == "account_resolution_pending_amount":
+                logger.info("Transfer intent detected but found existing account resolution state - using conversation state handler")
+                return await self._handle_conversation_state(user_id, message, existing_state, send_follow_up_callback, send_receipt_callback)
             else:
                 return await self.transfer_handler.handle_transfer_request(user_id, message, intent, entities, send_follow_up_callback)
         
@@ -370,7 +364,7 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             return await self.transfer_handler.handle_account_resolution(user_id, entities, self.memory)
         
         elif intent == "account_bank_amount_transfer":
-            return await self._handle_account_bank_amount_transfer(user_id, message, entities, send_follow_up_callback)
+            return await self._handle_account_bank_amount_transfer(user_id, message, entities, send_follow_up_callback, send_receipt_callback)
         
         elif intent == "banks":
             return await self._handle_banks_request(user_id, message)
@@ -649,43 +643,32 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
         # Process as account resolution
         return await self.transfer_handler.handle_account_resolution(user_id, entities, self.memory)
     
-    async def _handle_pending_confirmation(self, user_id: str, message: str, state: Dict, send_follow_up_callback) -> str:
+    async def _handle_pending_confirmation(self, user_id: str, message: str, state: Dict, send_follow_up_callback, send_receipt_callback=None) -> str:
         """Handle pending confirmation for transfers."""
         try:
-            state_type = state.get('type')
-            
-            # Parse message to get intent for better handling
+            state_type = state.get("type")
             intent, entities = self.message_processor.parse_message(message)
-            
-            # Check if user confirmed (yes/confirm) or denied (no/cancel)
             confirmed = self.conversation_state.extract_confirmation_from_message(message)
-            
-            # Handle confirmation responses
-            if confirmed == 'yes' or intent == 'confirmation':
-                # User confirmed - process the transfer
-                if state_type == 'beneficiary_transfer_pending_confirmation':
-                    return await self._process_beneficiary_transfer_confirmation(user_id, state, send_follow_up_callback)
-                elif state_type == 'direct_transfer_pending_confirmation':
-                    return await self._process_direct_transfer_confirmation(user_id, state, send_follow_up_callback)
-                elif state_type == 'transfer_pending_confirmation':
-                    return await self._process_direct_transfer_confirmation(user_id, state, send_follow_up_callback)
-                elif state_type == 'account_bank_amount_transfer_pending_confirmation':
-                    return await self._handle_account_bank_amount_confirmation(user_id, message, state, send_follow_up_callback)
+
+            if confirmed == "yes" or intent == "confirmation":
+                if state_type == "beneficiary_transfer_pending_confirmation":
+                    return await self._process_beneficiary_transfer_confirmation(user_id, state, send_follow_up_callback, send_receipt_callback)
+                elif state_type == "direct_transfer_pending_confirmation":
+                    return await self._process_direct_transfer_confirmation(user_id, state, send_follow_up_callback, send_receipt_callback)
+                elif state_type == "transfer_pending_confirmation":
+                    return await self._process_direct_transfer_confirmation(user_id, state, send_follow_up_callback, send_receipt_callback)
+                elif state_type == "account_bank_amount_transfer_pending_confirmation":
+                    return await self._handle_account_bank_amount_confirmation(user_id, message, state, send_follow_up_callback, send_receipt_callback)
                 else:
                     await self.memory.clear_conversation_state(user_id)
                     return "Something went wrong with the confirmation. Please try again."
-                    
-            elif confirmed == 'no' or intent == 'denial':
-                # User denied/canceled
+            elif confirmed == "no" or intent == "denial":
                 await self.memory.clear_conversation_state(user_id)
                 return "Transfer cancelled. What else can I help you with?"
-                
             else:
-                # Check if user is asking for something completely different
-                if intent in ['balance', 'history', 'list_beneficiaries', 'greeting', 'banks']:
-                    # Clear state and route to new intent
+                if intent in ["balance", "history", "list_beneficiaries", "greeting", "banks"]:
                     await self.memory.clear_conversation_state(user_id)
-                    return await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback)
+                    return await self._route_to_handler(user_id, message, intent, entities, send_follow_up_callback, send_receipt_callback)
                 else:
                     # Unclear response, ask for clarification
                     return "Please respond with 'yes' to confirm or 'no' to cancel the transfer."
@@ -695,7 +678,7 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             await self.memory.clear_conversation_state(user_id)
             return await self._handle_error_response(user_id, message, str(e))
     
-    async def _process_beneficiary_transfer_confirmation(self, user_id: str, state: Dict, send_follow_up_callback) -> str:
+    async def _process_beneficiary_transfer_confirmation(self, user_id: str, state: Dict, send_follow_up_callback, send_receipt_callback=None) -> str:
         """Process confirmed beneficiary transfer."""
         try:
             amount = state.get('amount')
@@ -751,13 +734,9 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
                         },
                         api_response=transfer_data
                     )
-                    
-                    # Generate and send receipt
                     asyncio.create_task(
-                        self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback)
+                        self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback, send_receipt_callback)
                     )
-                    
-                    # Return simple success message (receipt will be sent separately)
                     return f"✅ **Transfer Successful**\n\n₦{amount:,.2f} sent to {account_name}."
                 else:
                     return "❌ **Transfer Failed**\n\nSomething went wrong while processing your transfer. Please try again."
@@ -820,24 +799,18 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
                             logger.error(f"Auto-save recipient failed: {save_error}")
                             # Don't fail the transfer response if recipient save fails
                         
-                        # Generate and send receipt
                         asyncio.create_task(
-                            self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback)
+                            self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback, send_receipt_callback)
                         )
-                        
-                        # Return simple success message (receipt will be sent separately)
                         return f"✅ **Transfer Successful**\n\n₦{amount:,.2f} sent to {account_name}."
-                
                 return "❌ **Transfer Failed**\n\nCouldn't create recipient or process transfer. Please try again."
-            
             else:
                 return "Transfer information is incomplete. Please try again."
-            
         except Exception as e:
             logger.error(f"Beneficiary transfer confirmation failed: {e}")
             return "❌ **Transfer Failed**\n\nSomething went wrong while processing your transfer. Please try again."
     
-    async def _process_direct_transfer_confirmation(self, user_id: str, state: Dict, send_follow_up_callback) -> str:
+    async def _process_direct_transfer_confirmation(self, user_id: str, state: Dict, send_follow_up_callback, send_receipt_callback=None) -> str:
         """Process confirmed direct transfer."""
         try:
             amount = state.get('amount')
@@ -912,9 +885,9 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
                         logger.error(f"Auto-save recipient failed: {save_error}")
                     
                     # Generate and send receipt
-                    asyncio.create_task(
-                        self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback)
-                    )
+                        asyncio.create_task(
+                            self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback, send_receipt_callback)
+                        )
                     
                     # Return simple success message (receipt will be sent separately)
                     return f"✅ **Transfer Successful**\n\n₦{amount:,.2f} sent to {account_name}."
@@ -979,7 +952,7 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             logger.error(f"Recipient creation failed: {e}")
             return None
 
-    async def _handle_account_bank_amount_transfer(self, user_id: str, message: str, entities: Dict, send_follow_up_callback=None) -> str:
+    async def _handle_account_bank_amount_transfer(self, user_id: str, message: str, entities: Dict, send_follow_up_callback=None, send_receipt_callback=None) -> str:
         """Handle account + bank + amount transfer requests with account resolution."""
         try:
             account_number = entities.get('account_number')
@@ -1051,7 +1024,7 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             logger.error(f"Account bank amount transfer handling failed: {e}")
             return await self._handle_error_response(user_id, message, str(e))
     
-    async def _handle_account_bank_amount_confirmation(self, user_id: str, message: str, state: Dict, send_follow_up_callback) -> str:
+    async def _handle_account_bank_amount_confirmation(self, user_id: str, message: str, state: Dict, send_follow_up_callback, send_receipt_callback=None) -> str:
         """Handle confirmation for account + bank + amount transfers."""
         try:
             amount = state.get('amount')
@@ -1126,9 +1099,9 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
                         logger.error(f"Auto-save recipient failed: {save_error}")
                     
                     # Generate and send receipt
-                    asyncio.create_task(
-                        self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback)
-                    )
+                        asyncio.create_task(
+                            self._generate_and_send_receipt(user_id, transfer_record, send_follow_up_callback, send_receipt_callback)
+                        )
                     
                     # Return simple success message (receipt will be sent separately)
                     return f"✅ **Transfer Successful**\n\n₦{amount:,.2f} sent to {account_name}."
@@ -1296,62 +1269,55 @@ Examples:
             # Generic fallback
             return greeting_response + " I was helping you with something. What would you like to do?"
 
-    async def _generate_and_send_receipt(self, user_id: str, transfer_record: Dict, send_follow_up_callback=None) -> bool:
-        """Generate and send receipt image for a successful transfer."""
+    async def _generate_and_send_receipt(
+        self,
+        user_id: str,
+        transfer_record: Dict,
+        send_follow_up_callback=None,
+        send_receipt_callback=None,
+    ) -> bool:
+        """Generate and send receipt image. Uses send_receipt_callback if provided (e.g. Telegram), else WhatsApp."""
         try:
-            # Prepare receipt data
             receipt_data = {
-                'amount': transfer_record.get('amount', 0),
-                'recipient_name': transfer_record.get('recipient', 'Unknown'),
-                'account_number': transfer_record.get('account_number', 'N/A'),
-                'bank_name': transfer_record.get('bank_name', 'Unknown Bank'),
-                'reference': transfer_record.get('reference', 'N/A'),
-                'status': 'success',
-                'timestamp': transfer_record.get('timestamp', datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))
+                "amount": transfer_record.get("amount", 0),
+                "recipient_name": transfer_record.get("recipient", "Unknown"),
+                "account_number": transfer_record.get("account_number", "N/A"),
+                "bank_name": transfer_record.get("bank_name", "Unknown Bank"),
+                "reference": transfer_record.get("reference", "N/A"),
+                "status": "success",
+                "timestamp": transfer_record.get("timestamp", datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")),
             }
-            
-            # Generate receipt image
             receipt_path = generate_receipt_image(receipt_data)
-            
-            if receipt_path:
-                logger.info(f"Receipt generated successfully: {receipt_path}")
-                
-                # Save receipt metadata
-                await self.memory.save_receipt(
-                    user_id=user_id,
-                    reference=receipt_data['reference'],
-                    receipt_path=receipt_path
-                )
-                
-                # Send receipt via WhatsApp (if callback provided)
-                if send_follow_up_callback:
-                    try:
-                        # Import WhatsApp service to send receipt
-                        from app.services.whatsapp_service import WhatsAppService
-                        whatsapp_service = WhatsAppService()
-                        
-                        # Send receipt image in background
-                        asyncio.create_task(
-                            whatsapp_service.send_receipt_image(
-                                to=user_id,
-                                image_path=receipt_path,
-                                caption="✅ Transfer successful! Here's your receipt."
-                            )
-                        )
-                        
-                        logger.info(f"Receipt image sent to {user_id}")
-                        return True
-                        
-                    except Exception as send_error:
-                        logger.error(f"Failed to send receipt image: {send_error}")
-                        # Continue without sending image - receipt is still saved
-                        return True
-                
-                return True
-            else:
+            if not receipt_path:
                 logger.warning("Receipt generation failed")
                 return False
-                
+
+            await self.memory.save_receipt(user_id=user_id, reference=receipt_data["reference"], receipt_path=receipt_path)
+            caption = "✅ Transfer successful! Here's your receipt."
+
+            if send_receipt_callback:
+                try:
+                    with open(receipt_path, "rb") as f:
+                        image_bytes = f.read()
+                    await send_receipt_callback(user_id, image_bytes, caption)
+                    logger.info(f"Receipt image sent to {user_id} via channel callback")
+                    return True
+                except Exception as send_error:
+                    logger.error(f"Failed to send receipt via callback: {send_error}")
+                    return True
+            if send_follow_up_callback:
+                try:
+                    from app.services.whatsapp_service import WhatsAppService
+                    whatsapp_service = WhatsAppService()
+                    asyncio.create_task(
+                        whatsapp_service.send_receipt_image(to=user_id, image_path=receipt_path, caption=caption)
+                    )
+                    logger.info(f"Receipt image sent to {user_id}")
+                    return True
+                except Exception as send_error:
+                    logger.error(f"Failed to send receipt image: {send_error}")
+                    return True
+            return True
         except Exception as e:
             logger.error(f"Receipt generation and sending failed: {e}")
             return False
