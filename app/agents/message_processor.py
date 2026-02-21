@@ -175,8 +175,9 @@ class MessageProcessor:
                 "repetition_complaint", "denial", "amount_only", 
                 "conversational_response", "greeting_response", "greeting_question", "greeting",
                 "nickname_creation", "add_beneficiary", "list_beneficiaries", "beneficiary_mention", 
-                "named_transfer_with_account", "account_bank_amount_transfer", "beneficiary_transfer", "account_resolve", 
-                "people_sent_money", "transfers_sent", "balance", "history", "transfer", "help", "conversation", 
+                "named_transfer_with_account", "account_bank_amount_transfer", "account_resolve",
+                "people_sent_money", "transfers_sent", "beneficiary_transfer",
+                "balance", "history", "transfer", "help", "conversation", 
                 "correction", "complaint", "casual_response", "confirmation", "thanks"
             ]
             

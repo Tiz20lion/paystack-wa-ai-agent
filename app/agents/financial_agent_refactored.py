@@ -361,7 +361,7 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             return await self.beneficiary_handler.handle_beneficiary_transfer(user_id, message, entities, self.memory, self.balance_handler)
         
         elif intent == "account_resolve":
-            return await self.transfer_handler.handle_account_resolution(user_id, entities, self.memory)
+            return await self.transfer_handler.handle_account_resolution(user_id, entities, self.memory, send_follow_up_callback)
         
         elif intent == "account_bank_amount_transfer":
             return await self._handle_account_bank_amount_transfer(user_id, message, entities, send_follow_up_callback, send_receipt_callback)
@@ -641,7 +641,7 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
         await self.memory.clear_conversation_state(user_id)
         
         # Process as account resolution
-        return await self.transfer_handler.handle_account_resolution(user_id, entities, self.memory)
+        return await self.transfer_handler.handle_account_resolution(user_id, entities, self.memory, send_follow_up_callback)
     
     async def _handle_pending_confirmation(self, user_id: str, message: str, state: Dict, send_follow_up_callback, send_receipt_callback=None) -> str:
         """Handle pending confirmation for transfers."""

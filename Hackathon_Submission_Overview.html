@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TizLion AI Banking - Hackathon Submission Overview</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap');
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Source Sans 3', -apple-system, sans-serif;
+      line-height: 1.5;
+      color: #1a1a1a;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #fff;
+    }
+    @media print {
+      body { padding: 1rem; max-width: 100%; }
+      .no-print { display: none; }
+      h1, h2 { page-break-after: avoid; }
+      section { page-break-inside: avoid; }
+    }
+    h1 {
+      font-size: 1.5rem;
+      border-bottom: 2px solid #333;
+      padding-bottom: 0.5rem;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 1.15rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f5f5f5; font-weight: 600; }
+    ul { margin: 0.5rem 0; padding-left: 1.5rem; }
+    li { margin: 0.25rem 0; }
+    p { margin: 0.5rem 0; }
+    .intro { margin-bottom: 1.5rem; }
+    .flow-box {
+      border: 1px solid #333;
+      padding: 1rem;
+      margin: 0.75rem 0;
+      font-family: ui-monospace, monospace;
+      font-size: 0.85rem;
+      white-space: pre;
+      overflow-x: auto;
+      background: #fafafa;
+    }
+    .note { font-style: italic; color: #444; margin: 0.5rem 0; }
+    strong { font-weight: 600; }
+    .page-break { page-break-before: always; }
+    .repo-link {
+      display: inline-block;
+      margin-bottom: 1rem;
+      padding: 0.5rem 1rem;
+      background: #24292f;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .repo-link:hover { background: #373e47; }
+    .repo-link:visited { color: #fff; }
+    .diagram {
+      margin: 1.5rem 0;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      background: #fafafa;
+      overflow-x: auto;
+    }
+    .diagram-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
+    .diagram-stage { font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #555; min-width: 4rem; }
+    .diagram-node {
+      display: inline-block;
+      padding: 0.35rem 0.6rem;
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      background: #fff;
+    }
+    .diagram-node.trigger { border-color: #0969da; background: #ddf4ff; }
+    .diagram-node.processing { border-color: #1a7f37; background: #dafbe1; }
+    .diagram-node.output { border-color: #8250df; background: #fbefff; }
+    .diagram-arrow { color: #666; font-size: 1rem; margin: 0 0.2rem; }
+    .diagram-section { margin: 1rem 0; }
+    .diagram-section-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #333; }
+  </style>
+</head>
+<body>
+  <p class="no-print" style="background:#f0f0f0;padding:0.5rem 1rem;margin:-2rem -2rem 2rem -2rem;">
+    <strong>Save as PDF:</strong> Press Ctrl+P (or Cmd+P), choose "Save as PDF" as destination, then Save.
+  </p>
+
+  <h1>TizLion AI Banking – Hackathon Submission Overview</h1>
+  <a class="repo-link" href="https://github.com/Tiz20lion/paystack-wa-ai-agent" target="_blank" rel="noopener">GitHub: github.com/Tiz20lion/paystack-wa-ai-agent</a>
+  <p class="intro">Paystack WhatsApp/Telegram AI Banking Agent with interactive CLI. Draft content for submission criteria.</p>
+
+  <section>
+    <h2>1. Business Overview</h2>
+    <table>
+      <tr><th>Field</th><th>Content</th></tr>
+      <tr><td><strong>Business Name</strong></td><td>TizLion AI Banking (or Real/Fictional as required)</td></tr>
+      <tr><td><strong>Industry</strong></td><td>Fintech / Digital banking</td></tr>
+      <tr><td><strong>Target Customers</strong></td><td>Individuals and small businesses in Nigeria (and similar markets) who use Paystack and want to check balance, send money, and view history via WhatsApp or Telegram without opening a browser or app.</td></tr>
+      <tr><td><strong>Core Services</strong></td><td>Balance checks, bank account resolution, recipient creation, transfer initiation and finalization (with OTP), outgoing transfer list, incoming payments/transaction history, AI-powered natural-language banking (English and Pidgin), optional receipt generation and OCR for account details.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. Business Problem Statement</h2>
+    <p><strong>What problem exists?</strong><br>
+    Many users find it cumbersome to log into dashboards or switch apps to do simple banking (check balance, send money, see recent transactions). In messaging-first regions, people already use WhatsApp/Telegram; forcing them to leave the chat to bank creates friction and lowers engagement.</p>
+    <p><strong>Why is it important?</strong><br>
+    Friction leads to abandoned transfers, delayed payments, and poor experience. Businesses and individuals need fast, low-friction access to Paystack operations from the channels they already use.</p>
+    <p><strong>How does it affect customers or the business?</strong><br>
+    Customers face extra steps and context-switching; businesses see lower completion rates and support load from "how do I…" questions. A conversational interface in WhatsApp/Telegram reduces steps and meets users where they are.</p>
+  </section>
+
+  <section>
+    <h2>3. Proposed Solution</h2>
+    <p><strong>What automation did you build?</strong></p>
+    <ul>
+      <li><strong>Event-driven banking:</strong> Incoming WhatsApp/Telegram message triggers the flow. The system parses intent (balance, transfer, history, beneficiaries), runs the right Paystack operations, and replies in chat. Multi-step flows (e.g. transfer + OTP confirmation) are handled via conversation state and memory (MongoDB).</li>
+      <li><strong>CLI automation:</strong> Interactive menu (Rich/InquirerPy) for the same operations so power users or support can run them from the terminal without the dashboard.</li>
+    </ul>
+    <p><strong>What tools were integrated?</strong></p>
+    <ul>
+      <li>Paystack API (balance, banks, resolve account, transfer recipients, initiate/finalize transfer, transactions)</li>
+      <li>Twilio (WhatsApp), Telegram Bot API (Telegram)</li>
+      <li>OpenRouter (LLM for intent and natural language), LangChain/LangGraph (orchestration)</li>
+      <li>MongoDB (conversation state, memory, recipient patterns)</li>
+      <li>FastAPI (webhooks, REST, receipt serving), Python (CLI and backend)</li>
+    </ul>
+    <p><strong>Why this approach (instead of n8n)?</strong><br>
+    We chose a custom API + AI agent stack to keep full control over conversation state, multi-step transfer flows, and Paystack integration, and to support both chat (WhatsApp/Telegram) and CLI from one codebase. The automation is event-driven (webhook as trigger) with clear processing and output stages.</p>
+    <p><strong>What makes your solution effective?</strong></p>
+    <ul>
+      <li>Single place to bank from WhatsApp or Telegram (and CLI).</li>
+      <li>Natural language (e.g. "send 5k to mom", "what's my balance?") in English and Pidgin.</li>
+      <li>Memory and patterns (e.g. frequent recipients) for faster transfers and spending insights.</li>
+      <li>Optional receipts and OCR.</li>
+      <li>Security: webhook signature validation (Twilio), optional API key/JWT for REST, confirmation for sensitive actions.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4. Workflow Architecture (Trigger to Output)</h2>
+    <p class="note">Workflow implemented in-app (no n8n); structure is equivalent to Trigger → Processing → Output.</p>
+    <p><strong>Trigger</strong></p>
+    <ul>
+      <li><strong>Chat:</strong> Twilio or Telegram sends POST to webhook (/whatsapp/webhook or /telegram/webhook) with the user message.</li>
+      <li><strong>CLI:</strong> User runs python main.py --cli and selects an action from the menu.</li>
+    </ul>
+    <p><strong>Processing</strong></p>
+    <ul>
+      <li><strong>Chat path:</strong> Webhook → WhatsAppService / TelegramService → FinancialAgent.process_message() → MessageProcessor (intent/entities) → BalanceHandler, TransferHandler, HistoryHandler, BeneficiaryHandler, or AIHandler → PaystackService (and optionally recipient_manager, memory_manager). Multi-step state and OTP in ConversationState and MongoDB.</li>
+      <li><strong>CLI path:</strong> Menu choice → same PaystackService methods with prompts (e.g. bank code, account number, amount).</li>
+    </ul>
+    <p><strong>Output</strong></p>
+    <ul>
+      <li><strong>Chat:</strong> Formatted reply (and optional receipt image) sent back via Twilio/Telegram.</li>
+      <li><strong>CLI:</strong> Rich tables/panels in the terminal and, for transfers, success/failure message.</li>
+    </ul>
+    <p><strong>Full workflow diagram</strong></p>
+    <div class="diagram">
+      <div class="diagram-section">
+        <div class="diagram-section-title">TRIGGER</div>
+        <div class="diagram-row">
+          <span class="diagram-node trigger">WhatsApp</span>
+          <span class="diagram-node trigger">Telegram</span>
+          <span class="diagram-node trigger">CLI Menu</span>
+        </div>
+      </div>
+      <div class="diagram-arrow">↓</div>
+      <div class="diagram-section">
+        <div class="diagram-section-title">PROCESSING</div>
+        <div class="diagram-row">
+          <span class="diagram-node processing">Webhook</span>
+          <span class="diagram-arrow">→</span>
+          <span class="diagram-node processing">WhatsAppService / TelegramService</span>
+          <span class="diagram-arrow">→</span>
+          <span class="diagram-node processing">FinancialAgent</span>
+        </div>
+        <div class="diagram-row">
+          <span class="diagram-node processing">MessageProcessor</span>
+          <span class="diagram-arrow">→</span>
+          <span class="diagram-node processing">BalanceHandler</span>
+          <span class="diagram-node processing">TransferHandler</span>
+          <span class="diagram-node processing">HistoryHandler</span>
+          <span class="diagram-node processing">BeneficiaryHandler</span>
+          <span class="diagram-node processing">AIHandler</span>
+        </div>
+        <div class="diagram-row">
+          <span class="diagram-node processing">PaystackService</span>
+          <span class="diagram-arrow">+</span>
+          <span class="diagram-node processing">MongoDB (state / memory)</span>
+        </div>
+      </div>
+      <div class="diagram-arrow">↓</div>
+      <div class="diagram-section">
+        <div class="diagram-section-title">OUTPUT</div>
+        <div class="diagram-row">
+          <span class="diagram-node output">Chat Reply</span>
+          <span class="diagram-node output">Receipt image</span>
+          <span class="diagram-node output">CLI tables / result</span>
+        </div>
+      </div>
+    </div>
+    <p><strong>Major nodes:</strong> Webhook = receives WhatsApp/Telegram messages; FinancialAgent = coordinates intent and handlers; MessageProcessor = extracts intent and entities; Handlers = balance, transfer, history, beneficiaries, AI; PaystackService = calls Paystack API; Memory/State = conversation and multi-step flow; Output = reply, receipt, or CLI result.</p>
+  </section>
+
+  <section>
+    <h2>5. Slides Checklist</h2>
+    <ul>
+      <li>Business Problem</li>
+      <li>Solution Overview</li>
+      <li>Workflow Diagram Screenshot</li>
+      <li>Tools Used (Paystack, Twilio, Telegram, OpenRouter, LangChain, MongoDB, FastAPI, Python)</li>
+      <li>Demo Link (Google Drive, "anyone with the link" can view)</li>
+      <li>Impact / Expected Results</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. Demo Video (Mandatory)</h2>
+    <ul>
+      <li><strong>Format:</strong> Live testing video.</li>
+      <li><strong>Show:</strong> (1) Triggering the workflow (WhatsApp/Telegram message or CLI action), (2) automation running (e.g. balance check or transfer with OTP), (3) final output (reply in chat or CLI result, receipt if applicable).</li>
+      <li><strong>Submit:</strong> Upload to Google Drive, put link in a slide, set sharing to "Anyone with the link".</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>7. Narrative</h2>
+    <p><em>TizLion AI Banking is a fintech solution that automates Paystack operations over WhatsApp and Telegram and via a CLI. It addresses the friction of switching to a browser or app to check balance, send money, or view history. When a user sends a message (trigger), the system parses intent, runs the right Paystack API calls and stateful flows (processing), and replies in chat or in the terminal (output). Tools used include Paystack, Twilio, Telegram, OpenRouter, LangChain, MongoDB, and FastAPI. The solution is effective because it meets users in the channels they already use, supports natural language in English and Pidgin, and keeps state for multi-step transfers and OTP, with optional receipts and OCR.</em></p>
+  </section>
+</body>
+</html>

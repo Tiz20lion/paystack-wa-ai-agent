@@ -322,14 +322,14 @@ Is this correct? Type "yes" to proceed or "no" to cancel."""
             logger.error(f"Transfer request handling failed: {e}")
             return "Sorry, I couldn't process your transfer request. Please try again."
 
-    async def handle_account_resolution(self, user_id: str, entities: Dict, memory_manager) -> str:
+    async def handle_account_resolution(self, user_id: str, entities: Dict, memory_manager, send_follow_up_callback=None) -> str:
         """Handle account resolution requests with two-way messaging."""
         try:
             # Send immediate acknowledgment response
             immediate_response = "Let me resolve that account for you... ⏳"
             
             # Start background processing task (don't await it)
-            asyncio.create_task(self._process_account_resolution_background(user_id, entities, memory_manager))
+            asyncio.create_task(self._process_account_resolution_background(user_id, entities, memory_manager, send_follow_up_callback))
             
             # Return immediate response to user
             return immediate_response
