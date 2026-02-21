@@ -19,7 +19,7 @@ class MessageProcessor:
     def __init__(self):
         # Enhanced intent patterns for better conversational understanding
         self.intent_patterns = {
-            "balance": [r"balance", r"how much.*have(?!.*sent)", r"account balance", r"check balance", r"my money(?!.*sent)", r"wetin dey my account", r"how much money"],
+            "balance": [r"balance", r"how much.*have(?!.*sent)(?!.*spent)", r"account balance", r"check balance", r"my money(?!.*sent)", r"wetin dey my account", r"how much money"],
             "transfer": [r"transfer.*to", r"send.*to", r"pay.*to", r"payment.*to", r"\d+k?\s+to", r"send \d+", r"give.*money"],
             "account_resolve": [r"\d{10}\s+\w+", r"resolve", r"check account", r"account.*bank"],
             # Enhanced account + bank + amount patterns (these should be detected first)
@@ -81,7 +81,7 @@ class MessageProcessor:
             "conversational_response": [r"i dey ask you", r"you nko", r"and you", r"you.*dey"],
             "repetition_complaint": [r"already.*told", r"told.*you.*already", r"keep.*asking", r"again.*again", r"stop.*asking"],
             "history": [r"history", r"transactions", r"what.*did", r"what.*happened", r"recent.*activity", r"my.*activity", r"show.*transactions", r"payment.*history"],
-            "transfers_sent": [r"transfer.*list", r"money.*sent", r"transfers.*made", r"sent.*money", r"outgoing", r"money.*i.*sent", r"how much.*sent", r"sent.*this.*week", r"sent.*today", r"transfers.*week", r"how much.*transfer", r"transactions.*sent", r"transaction.*sent", r"transactions.*i.*sent", r"sent.*out", r"transactions.*out", r"money.*out", r"transfers.*out", r"what.*sent", r"money.*transfer", r"transfer.*history", r"about.*transactions.*sent", r"how.*about.*transactions", r"how.*about.*my.*transaction.*sent", r"about.*my.*transaction.*sent", r"my.*transaction.*sent", r"transactions.*sent.*out", r"money.*i.*transfer", r"what.*about.*transaction.*sent", r"how.*about.*sent", r"about.*sent", r"transaction.*i.*sent"],
+            "transfers_sent": [r"transfer.*list", r"money.*sent", r"transfers.*made", r"sent.*money", r"outgoing", r"money.*i.*sent", r"how much.*sent", r"sent.*this.*week", r"sent.*today", r"transfers.*week", r"how much.*transfer", r"transactions.*sent", r"transaction.*sent", r"transactions.*i.*sent", r"sent.*out", r"transactions.*out", r"money.*out", r"transfers.*out", r"what.*sent", r"money.*transfer", r"transfer.*history", r"about.*transactions.*sent", r"how.*about.*transactions", r"how.*about.*my.*transaction.*sent", r"about.*my.*transaction.*sent", r"my.*transaction.*sent", r"transactions.*sent.*out", r"money.*i.*transfer", r"what.*about.*transaction.*sent", r"how.*about.*sent", r"about.*sent", r"transaction.*i.*sent", r"how much.*spent", r"how much have i spent", r"spent.*this.*week", r"spent.*today", r"spending.*week", r"how much.*i.*spent", r"money.*i.*spent", r"amount.*spent"],
             "people_sent_money": [
                 r"who\s+are\s+the\s+people\s+i\s+sent\s+money\s+to",  # Exact match first
                 r"who\s+are\s+the\s+people\s+i\s+sent\s+money",      # Without "to"

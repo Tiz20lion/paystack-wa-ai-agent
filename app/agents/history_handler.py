@@ -1361,24 +1361,38 @@ Your transaction history has been retrieved successfully!"""
             return "📊 **Transaction History**\n\nYour transaction history has been retrieved." 
 
     async def handle_people_sent_money_request(self, user_id: str, message: str, send_follow_up_callback) -> str:
-        """Handle 'who are the people i sent money to' requests with ONLY real data - no AI generation of fake information."""
+        """Handle 'who are the people i sent money to' requests with ONLY real data. Respects time period (e.g. this week)."""
         try:
-            # Immediate response
-            immediate_response = "Let me check who you've sent money to recently... 🔍"
-            
+            from_date, _, period_text = self.parse_time_filter(message)
+            period_hint = f" {period_text.lower()}" if (period_text and period_text != "All Time" and from_date) else ""
+            immediate_response = f"Let me check who you've sent money to{period_hint}... 🔍"
             # Start background processing for actual data
             asyncio.create_task(self._process_people_sent_money_background(user_id, message, send_follow_up_callback))
-            
             return immediate_response
-            
         except Exception as e:
             logger.error(f"Failed to start people sent money request: {e}")
             return "Sorry, I couldn't check your transfer history right now. Please try again."
     
+    def _transfer_in_date_range(self, transfer: Dict, from_date: Optional[str], to_date: Optional[str]) -> bool:
+        """Return True if transfer date is within from_date and to_date (inclusive)."""
+        if from_date is None or to_date is None:
+            return True
+        raw = transfer.get('createdAt', transfer.get('created_at', transfer.get('timestamp', '')))
+        if not raw:
+            return False
+        if hasattr(raw, 'strftime'):
+            transfer_date = raw.strftime("%Y-%m-%d")
+        else:
+            transfer_date = (raw[:10] if isinstance(raw, str) else str(raw)[:10])
+        return from_date <= transfer_date <= to_date
+
     async def _process_people_sent_money_background(self, user_id: str, message: str, send_follow_up_callback):
-        """Process 'people sent money to' request with combined database and API data."""
+        """Process 'people sent money to' request with combined database and API data. Respects time period in message (e.g. 'this week')."""
         try:
             logger.info(f"🔄 Processing 'people sent money to' request for user {user_id}")
+            from_date, to_date, period_text = self.parse_time_filter(message)
+            if from_date and to_date:
+                logger.info(f"🗓️ Filtering transfers to period: {period_text} ({from_date} to {to_date})")
             
             # Get transfers from BOTH sources - Database (recent) and API (comprehensive)
             database_transfers = []
@@ -1387,14 +1401,14 @@ Your transaction history has been retrieved successfully!"""
             # 1. Get saved transfers from database (includes recipient details)
             if self.memory and hasattr(self.memory, 'get_transfer_history'):
                 try:
-                    database_transfers = await self.memory.get_transfer_history(user_id, limit=20)
+                    database_transfers = await self.memory.get_transfer_history(user_id, limit=50)
                     logger.info(f"Retrieved {len(database_transfers)} transfers from database")
                 except Exception as db_error:
                     logger.warning(f"Database transfer retrieval failed: {db_error}")
             
             # 2. Get transfers from Paystack API
             try:
-                transfers_response = await self.paystack.list_transfers(per_page=20)
+                transfers_response = await self.paystack.list_transfers(per_page=50)
                 if transfers_response and transfers_response.get('status'):
                     api_transfers = transfers_response.get('data', [])
                     logger.info(f"Retrieved {len(api_transfers)} transfers from Paystack API")
@@ -1403,9 +1417,15 @@ Your transaction history has been retrieved successfully!"""
             
             # Combine and deduplicate transfers
             all_transfers = self._combine_transfer_sources(database_transfers, api_transfers)
+            # Filter by time period when user asked e.g. "this week"
+            if from_date and to_date:
+                all_transfers = [t for t in all_transfers if self._transfer_in_date_range(t, from_date, to_date)]
+                logger.info(f"After filtering by {period_text}: {len(all_transfers)} transfers")
             
             if not all_transfers:
-                await send_follow_up_callback(user_id, "You haven't sent money to anyone yet through this platform.")
+                period_lower = period_text.lower() if period_text and period_text != "All Time" else ""
+                no_msg = f"You haven't sent money to anyone {period_lower} through this platform." if period_lower else "You haven't sent money to anyone yet through this platform."
+                await send_follow_up_callback(user_id, no_msg)
                 return
             
             # Group transfers by recipient for consolidation
@@ -1475,8 +1495,9 @@ Your transaction history has been retrieved successfully!"""
                 reverse=True
             )
             
-            # Build clean response
-            response = "💸 *People you've sent money to:*\n\n"
+            # Build clean response (include period when filtered e.g. "this week")
+            period_suffix = f" ({period_text})" if period_text and period_text != "All Time" else ""
+            response = f"💸 *People you've sent money to{period_suffix}:*\n\n"
             
             for i, (_, data) in enumerate(sorted_recipients[:10], 1):  # Limit to 10
                 name = data['name']
@@ -1509,7 +1530,8 @@ Your transaction history has been retrieved successfully!"""
             # Add overall summary
             total_transfers = len(all_transfers)
             total_amount = sum(data['total_amount'] for data in recipients_data.values())
-            response += f"📊 *Summary:* {total_recipients} recipients, {total_transfers} transfers, ₦{total_amount:,.2f} total sent"
+            summary_period = f" {period_text.lower()}" if period_text and period_text != "All Time" else ""
+            response += f"📊 *Summary:* {total_recipients} recipients, {total_transfers} transfers, ₦{total_amount:,.2f} total sent{summary_period}"
             
             await send_follow_up_callback(user_id, response)
             logger.info(f"✅ 'People sent money to' processing completed for user {user_id}")
