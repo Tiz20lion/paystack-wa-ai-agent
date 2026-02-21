@@ -206,17 +206,23 @@ async def startup_webhook_check():
             logger.warning(
                 "TELEGRAM_STARTUP_CHAT_ID is not set. Set it in .env to your Telegram chat ID so the bot can message you on startup and use the Bot API."
             )
-        try:
-            info = await telegram_service.get_webhook_info()
-            if info.get("url"):
-                logger.info("Telegram webhook is set; removing it so long polling can receive updates.")
-                await telegram_service.delete_webhook()
-        except Exception as e:
-            logger.warning(f"Telegram webhook check: {e}")
-        asyncio.create_task(_telegram_poll_loop())
-        logger.info(
-            "Telegram: using Bot API (token) and chat_id for integration. Long polling started."
-        )
+        use_polling = getattr(settings, "telegram_use_polling", True)
+        if use_polling:
+            try:
+                info = await telegram_service.get_webhook_info()
+                if info.get("url"):
+                    logger.info("Telegram webhook is set; removing it so long polling can receive updates.")
+                    await telegram_service.delete_webhook()
+            except Exception as e:
+                logger.warning(f"Telegram webhook check: {e}")
+            asyncio.create_task(_telegram_poll_loop())
+            logger.info(
+                "Telegram: using Bot API (token) and chat_id for integration. Long polling started."
+            )
+        else:
+            logger.info(
+                "Telegram: using Bot API; TELEGRAM_USE_POLLING=false, webhook only. Set webhook URL in BotFather."
+            )
         if startup_chat_id:
             try:
                 result = await telegram_service.send_message(
@@ -938,10 +944,10 @@ async def _process_telegram_message(body: Dict[str, Any]) -> None:
     logger.info(f"Telegram message from chat_id={chat_id_str}: text={text[:50] if text else '(photo)'}")
 
     async def send_follow_up(uid: str, msg: str):
-        await telegram_service.send_message(chat_id_str, msg)
+        await telegram_service.send_message(uid, msg)
 
     async def send_receipt(uid: str, image_bytes: bytes, caption: str):
-        await telegram_service.send_photo(chat_id_str, image_bytes, caption)
+        await telegram_service.send_photo(uid, image_bytes, caption)
 
     async def download_media(mc: Dict[str, Any]):
         fid = mc.get("telegram_file_id")
