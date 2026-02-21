@@ -210,6 +210,13 @@ async def startup_webhook_check():
             logger.warning(f"Telegram webhook check: {e}")
         asyncio.create_task(_telegram_poll_loop())
         logger.info("Telegram chat interface enabled (long polling); no webhook required. Using chat_id and Bot API for replies.")
+        startup_chat_id = (getattr(settings, "telegram_startup_chat_id", None) or os.getenv("TELEGRAM_STARTUP_CHAT_ID") or "").strip()
+        if startup_chat_id:
+            try:
+                await telegram_service.send_message(startup_chat_id, "TizLion AI Banking bot is online. Send a message to get started.")
+                logger.info(f"Telegram startup message sent to chat_id={startup_chat_id}")
+            except Exception as e:
+                logger.warning(f"Could not send Telegram startup message: {e}")
 
 
 # Dependency to check API key for protected endpoints
