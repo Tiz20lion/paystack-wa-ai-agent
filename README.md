@@ -49,10 +49,13 @@ TWILIO_AUTH_TOKEN=...
 TWILIO_WHATSAPP_NUMBER=whatsapp:+...
 WEBHOOK_URL=https://your-domain.com/whatsapp/webhook
 
-# Telegram (optional chat interface)
-# Set webhook in BotFather to https://<your-domain>/telegram/webhook
+# Telegram (optional; private bot for you only)
+# Set both: Bot token from BotFather and your chat ID. Only this chat_id can use the bot; bot messages you on startup.
+# Get your chat_id: message the bot and check logs for "Telegram message from chat_id=..." or use @userinfobot.
 TELEGRAM_BOT_TOKEN=
-TELEGRAM_WEBHOOK_SECRET=
+TELEGRAM_STARTUP_CHAT_ID=
+# Optional: TELEGRAM_USE_POLLING=true (default, no webhook) or false to use webhook only
+# TELEGRAM_WEBHOOK_SECRET=  # optional, for webhook header validation
 
 # AI Features
 OPENROUTER_API_KEY=...
@@ -63,6 +66,13 @@ JWT_SECRET_KEY=...
 # Note: WEBHOOK_SECRET is defined but not used - Twilio uses TWILIO_AUTH_TOKEN for signature validation
 WEBHOOK_SECRET=...
 ```
+
+## Telegram Setup
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the token to `TELEGRAM_BOT_TOKEN`.
+2. Set `TELEGRAM_STARTUP_CHAT_ID` to your Telegram chat ID (only this user can use the bot; you get a startup message when the server starts).
+3. Get your chat ID: send a message to your bot and check server logs for `Telegram message from chat_id=123456789`, or use [@userinfobot](https://t.me/userinfobot).
+4. By default the app uses **long polling** (no webhook). Set `TELEGRAM_USE_POLLING=false` to use webhook only and set the webhook URL in BotFather.
 
 ## Usage
 
@@ -89,7 +99,7 @@ AI: "You've spent ₦45,000 this week: ₦30k transfers, ₦15k airtime."
 ## API Endpoints
 
 - `POST /whatsapp/webhook` - WhatsApp webhook (Twilio signature verified)
-- `POST /telegram/webhook` - Telegram bot webhook (optional; set in BotFather to `https://<your-domain>/telegram/webhook`)
+- `POST /telegram/webhook` - Telegram bot webhook (when `TELEGRAM_USE_POLLING=false`; set in BotFather to `https://<your-domain>/telegram/webhook`)
 - `GET /api/balance` - Check balance (requires API key)
 - `POST /api/transfers` - Send money (requires API key)
 - `GET /api/transfers` - Transaction history (requires API key)
@@ -117,7 +127,7 @@ This application can also be deployed on:
 - **DigitalOcean App Platform**: Simple deployment
 - **Docker**: Containerized deployment
 
-**Security:** All `/api/*` endpoints require `X-API-Key` header. WhatsApp webhook is protected by Twilio signature verification. Telegram webhook can use `TELEGRAM_WEBHOOK_SECRET` and the `X-Telegram-Bot-Api-Secret-Token` header.
+**Security:** All `/api/*` endpoints require `X-API-Key` header. WhatsApp webhook is protected by Twilio signature verification. Telegram: only the chat ID in `TELEGRAM_STARTUP_CHAT_ID` can use the bot; webhook can use `TELEGRAM_WEBHOOK_SECRET` and `X-Telegram-Bot-Api-Secret-Token` when set.
 
 ## Project Structure
 
