@@ -112,12 +112,18 @@ def validate_twilio_config() -> Dict[str, bool]:
 
 
 def validate_telegram_config() -> Dict[str, bool]:
-    """Validate Telegram bot configuration (optional chat interface)."""
+    """Validate Telegram bot configuration (Bot API + your chat_id; bot messages you on startup)."""
     token = (getattr(settings, "telegram_bot_token", None) or "").strip()
+    startup_chat_id = (getattr(settings, "telegram_startup_chat_id", None) or "").strip()
+    warnings = []
+    if not token:
+        warnings.append("TELEGRAM_BOT_TOKEN not set - Telegram chat disabled")
+    elif not startup_chat_id:
+        warnings.append("TELEGRAM_STARTUP_CHAT_ID not set - set your chat ID in .env to receive startup message")
     return {
         "valid": bool(token),
         "issues": [],
-        "warnings": [] if token else ["TELEGRAM_BOT_TOKEN not set - Telegram chat disabled"],
+        "warnings": warnings,
     }
 
 

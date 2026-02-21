@@ -201,6 +201,11 @@ async def startup_webhook_check():
             "Set WEBHOOK_URL in .env to the exact URL from Twilio Console (e.g. http://YOUR_IP:8000/whatsapp/webhook) so signature validation passes."
         )
     if telegram_service and getattr(telegram_service, "token", None):
+        startup_chat_id = (getattr(settings, "telegram_startup_chat_id", None) or os.getenv("TELEGRAM_STARTUP_CHAT_ID") or "").strip()
+        if not startup_chat_id:
+            logger.warning(
+                "TELEGRAM_STARTUP_CHAT_ID is not set. Set it in .env to your Telegram chat ID so the bot can message you on startup and use the Bot API."
+            )
         try:
             info = await telegram_service.get_webhook_info()
             if info.get("url"):
@@ -209,12 +214,19 @@ async def startup_webhook_check():
         except Exception as e:
             logger.warning(f"Telegram webhook check: {e}")
         asyncio.create_task(_telegram_poll_loop())
-        logger.info("Telegram chat interface enabled (long polling); no webhook required. Using chat_id and Bot API for replies.")
-        startup_chat_id = (getattr(settings, "telegram_startup_chat_id", None) or os.getenv("TELEGRAM_STARTUP_CHAT_ID") or "").strip()
+        logger.info(
+            "Telegram: using Bot API (token) and chat_id for integration. Long polling started."
+        )
         if startup_chat_id:
             try:
-                await telegram_service.send_message(startup_chat_id, "TizLion AI Banking bot is online. Send a message to get started.")
-                logger.info(f"Telegram startup message sent to chat_id={startup_chat_id}")
+                result = await telegram_service.send_message(
+                    startup_chat_id,
+                    "TizLion AI Banking bot is online. Send a message to get started.",
+                )
+                if result.get("ok"):
+                    logger.info(f"Telegram startup message sent to your chat_id={startup_chat_id}")
+                else:
+                    logger.warning(f"Telegram startup message failed: {result}")
             except Exception as e:
                 logger.warning(f"Could not send Telegram startup message: {e}")
 
