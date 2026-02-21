@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     # Telegram Bot (chat interface)
     telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     telegram_webhook_secret: str = Field(default="", alias="TELEGRAM_WEBHOOK_SECRET")
+    telegram_use_polling: bool = Field(default=True, alias="TELEGRAM_USE_POLLING")
 
     # Security
     jwt_secret_key: str = Field(default="your-secret-key", alias="JWT_SECRET_KEY")

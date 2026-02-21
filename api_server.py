@@ -201,7 +201,12 @@ async def startup_webhook_check():
             "Set WEBHOOK_URL in .env to the exact URL from Twilio Console (e.g. http://YOUR_IP:8000/whatsapp/webhook) so signature validation passes."
         )
     if telegram_service and getattr(telegram_service, "token", None):
-        logger.info("Telegram chat interface enabled; set webhook URL in BotFather to https://<your-domain>/telegram/webhook")
+        use_polling = getattr(settings, "telegram_use_polling", True)
+        if use_polling:
+            asyncio.create_task(_telegram_poll_loop())
+            logger.info("Telegram chat interface enabled (long polling); no webhook required. Set TELEGRAM_USE_POLLING=false if using webhook.")
+        else:
+            logger.info("Telegram chat interface enabled; set webhook URL in BotFather to https://<your-domain>/telegram/webhook")
 
 
 # Dependency to check API key for protected endpoints
@@ -882,33 +887,19 @@ async def handle_image_message(
 
 
 # =============================================================================
-# TELEGRAM WEBHOOK
+# TELEGRAM (WEBHOOK + LONG POLLING)
 # =============================================================================
 
-@app.post("/telegram/webhook")
-@limiter.limit("100/minute")
-async def telegram_webhook(request: Request):
-    """Handle incoming Telegram bot updates (messages). Reply with 200 quickly; process then send response."""
+async def _process_telegram_message(body: Dict[str, Any]) -> None:
+    """Process one Telegram update (message). Used by webhook and by long polling. Sends reply via telegram_service."""
     if not AI_SERVICES_AVAILABLE or not telegram_service or not getattr(telegram_service, "token", None):
-        return Response(status_code=200)
-
-    try:
-        body = await request.json()
-    except Exception:
-        return Response(status_code=200)
-
-    secret = (getattr(settings, "telegram_webhook_secret", None) or "").strip()
-    if secret and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != secret:
-        return Response(status_code=403)
-
+        return
     message = body.get("message")
     if not message:
-        return Response(status_code=200)
-
+        return
     chat_id = message.get("chat", {}).get("id")
     if chat_id is None:
-        return Response(status_code=200)
-
+        return
     user_info = {"user_id": str(chat_id)}
     text = (message.get("text") or "").strip()
     photo = message.get("photo")
@@ -947,11 +938,53 @@ async def telegram_webhook(request: Request):
             )
         await telegram_service.send_message(str(chat_id), response_text or "Done.")
     except Exception as e:
-        logger.error(f"Telegram webhook error: {e}")
+        logger.error(f"Telegram message error: {e}")
         try:
             await telegram_service.send_message(str(chat_id), "Sorry, I had trouble processing that. Please try again.")
         except Exception:
             pass
+
+
+async def _telegram_poll_loop() -> None:
+    """Background loop: long poll getUpdates and process each message. Runs when TELEGRAM_USE_POLLING is True."""
+    if not telegram_service or not getattr(telegram_service, "token", None):
+        return
+    offset: Optional[int] = None
+    while True:
+        try:
+            updates, offset = await telegram_service.get_updates(offset=offset, timeout=25)
+            for update in updates:
+                body = {"message": update.get("message")}
+                if body.get("message"):
+                    await _process_telegram_message(body)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.debug(f"Telegram poll error: {e}")
+            await asyncio.sleep(2)
+
+
+@app.post("/telegram/webhook")
+@limiter.limit("100/minute")
+async def telegram_webhook(request: Request):
+    """Handle incoming Telegram bot updates (messages). Reply with 200 quickly; process then send response."""
+    if not AI_SERVICES_AVAILABLE or not telegram_service or not getattr(telegram_service, "token", None):
+        return Response(status_code=200)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return Response(status_code=200)
+
+    secret = (getattr(settings, "telegram_webhook_secret", None) or "").strip()
+    if secret and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != secret:
+        return Response(status_code=403)
+
+    message = body.get("message")
+    if not message:
+        return Response(status_code=200)
+
+    await _process_telegram_message(body)
     return Response(status_code=200)
 
 

@@ -4,7 +4,7 @@ Uses HTTPS requests to api.telegram.org; no heavy SDK required.
 """
 
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 from app.utils.logger import get_logger
 from app.utils.config import settings
 
@@ -101,6 +101,34 @@ class TelegramService:
         except Exception as e:
             logger.error(f"Telegram download_media error: {e}")
             return None
+
+    async def get_updates(
+        self, offset: Optional[int] = None, timeout: int = 25
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """
+        Long polling: get updates from Telegram. Returns (list of updates, next_offset).
+        Use next_offset for the next get_updates call so updates are not repeated.
+        """
+        if not self._enabled():
+            return [], offset or 0
+        try:
+            params: Dict[str, Any] = {"timeout": timeout}
+            if offset is not None:
+                params["offset"] = offset
+            async with httpx.AsyncClient(timeout=timeout + 5) as client:
+                r = await client.get(f"{self._base_url}/getUpdates", params=params)
+                data = r.json()
+                if not data.get("ok"):
+                    logger.warning(f"Telegram getUpdates failed: {data}")
+                    return [], offset or 0
+                results = data.get("result") or []
+                next_offset = offset or 0
+                if results:
+                    next_offset = max(u.get("update_id", 0) for u in results) + 1
+                return results, next_offset
+        except Exception as e:
+            logger.debug(f"Telegram get_updates error: {e}")
+            return [], offset or 0
 
 
 telegram_service = TelegramService()
