@@ -175,6 +175,20 @@ async def general_exception_handler(request, exc: Exception):
     )
 
 
+@app.on_event("startup")
+async def startup_webhook_check():
+    """Warn if Twilio is configured but server is bound to localhost (WhatsApp will not receive messages)."""
+    if not getattr(settings, "twilio_account_sid", None) or not settings.twilio_account_sid:
+        return
+    host = getattr(settings, "api_host", "127.0.0.1")
+    if host == "127.0.0.1" or host == "localhost":
+        logger.warning(
+            "Twilio is configured but API_HOST is %s. Twilio cannot reach localhost. "
+            "On VPS set API_HOST=0.0.0.0 and use a public HTTPS URL in Twilio webhook.",
+            host,
+        )
+
+
 # Dependency to check API key for protected endpoints
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     """Verify API key for protected endpoints."""
@@ -695,24 +709,28 @@ async def whatsapp_webhook(request: Request):
         )
     
     try:
-        # Get Twilio signature from headers
         twilio_signature = request.headers.get("X-Twilio-Signature", "")
-        
-        # Get form data from webhook
         form_data = await request.form()
         request_data = dict(form_data)
-        
-        # Get full request URL for signature validation (include scheme, host, path)
+
         request_url = f"{request.url.scheme}://{request.url.netloc}{request.url.path}"
         if request.url.query:
             request_url += f"?{request.url.query}"
-        
-        # Validate webhook request with signature verification
-        if not whatsapp_service.validate_webhook_request(request_data, request_url, twilio_signature):
+        validation_url = (getattr(settings, "webhook_url", "") or "").strip() or None
+
+        if not whatsapp_service.validate_webhook_request(
+            request_data, request_url, twilio_signature, validation_url=validation_url
+        ):
             logger.warning(f"Invalid webhook request from {request_data.get('From', 'Unknown')}")
             raise HTTPException(
                 status_code=403,
                 detail="Invalid webhook signature"
+            )
+
+        if 'Body' not in request_data and int(request_data.get('NumMedia', 0)) == 0:
+            return Response(
+                content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+                media_type="application/xml"
             )
         
         logger.info(f"WhatsApp webhook received and verified from {request_data.get('From', 'Unknown')}")

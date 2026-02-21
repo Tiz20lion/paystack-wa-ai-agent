@@ -248,40 +248,39 @@ class WhatsAppService:
         response.message(message)
         return str(response)
     
-    def validate_webhook_request(self, request_data: Dict[str, Any], request_url: str = None, signature: str = None) -> bool:
+    def validate_webhook_request(
+        self,
+        request_data: Dict[str, Any],
+        request_url: str = None,
+        signature: str = None,
+        validation_url: str = None,
+    ) -> bool:
         """Validate incoming webhook request with Twilio signature verification."""
-        # Check required fields
-        required_fields = ['From', 'Body', 'MessageSid']
-        for field in required_fields:
-            if field not in request_data:
-                logger.warning(f"Missing required field: {field}")
-                return False
-        
-        # Verify Twilio signature if validator is available AND both URL and signature are provided
-        if self.validator and request_url and signature:
+        if 'From' not in request_data or 'MessageSid' not in request_data:
+            logger.warning("Missing required field: From or MessageSid")
+            return False
+        has_body = 'Body' in request_data
+        has_media = int(request_data.get('NumMedia', 0)) > 0
+        if not has_body and not has_media:
+            return True
+
+        url_for_signature = (validation_url or request_url) if (validation_url or request_url) else request_url
+        if self.validator and url_for_signature and signature:
             try:
-                # Convert form data to dict for validation
                 params = dict(request_data)
-                
-                # Validate signature
-                is_valid = self.validator.validate(request_url, params, signature)
-                
+                is_valid = self.validator.validate(url_for_signature, params, signature)
                 if not is_valid:
                     logger.warning(f"Invalid Twilio webhook signature from {request_data.get('From', 'Unknown')}")
                     return False
-                
                 logger.debug("Twilio webhook signature verified successfully")
                 return True
             except Exception as e:
                 logger.error(f"Error validating Twilio signature: {e}")
                 return False
-        elif self.validator and (not request_url or not signature):
-            # Validator is configured but URL/signature not provided (backwards compatibility)
-            # This allows internal calls to work without signature verification
+        elif self.validator and (not url_for_signature or not signature):
             logger.debug("Twilio validator configured but URL/signature not provided - skipping signature verification (backwards compatibility)")
             return True
         else:
-            # No validator configured - allow request (for development)
             logger.debug("Twilio validator not initialized - skipping signature verification")
             return True
     
