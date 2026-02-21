@@ -913,7 +913,7 @@ async def handle_image_message(
 # =============================================================================
 
 async def _process_telegram_message(body: Dict[str, Any]) -> None:
-    """Process one Telegram update (message). Used by webhook and by long polling. Sends reply via Telegram Bot API using chat_id."""
+    """Process one Telegram update (message). Only TELEGRAM_STARTUP_CHAT_ID (owner) can use the bot."""
     if not AI_SERVICES_AVAILABLE or not telegram_service or not getattr(telegram_service, "token", None):
         return
     message = body.get("message")
@@ -924,6 +924,14 @@ async def _process_telegram_message(body: Dict[str, Any]) -> None:
         logger.warning("Telegram update has no chat.id, skipping")
         return
     chat_id_str = str(chat_id)
+    allowed_chat_id = (getattr(settings, "telegram_startup_chat_id", None) or os.getenv("TELEGRAM_STARTUP_CHAT_ID") or "").strip()
+    if allowed_chat_id and chat_id_str != allowed_chat_id:
+        logger.info(f"Telegram: ignoring message from unauthorized chat_id={chat_id_str} (only {allowed_chat_id} allowed)")
+        try:
+            await telegram_service.send_message(chat_id_str, "This bot is private. Only the owner can use it.")
+        except Exception:
+            pass
+        return
     user_info = {"user_id": chat_id_str}
     text = (message.get("text") or "").strip()
     photo = message.get("photo")
