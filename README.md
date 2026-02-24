@@ -1,4 +1,4 @@
-# Paystack WhatsApp AI Agent
+# Paystack WhatsApp AI Agent.
 
 🤖 **AI-powered banking assistant** - Send money, check balance, and manage finances through natural chat on **WhatsApp** or **Telegram**.
 
